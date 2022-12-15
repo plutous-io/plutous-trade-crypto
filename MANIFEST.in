@@ -1,0 +1,2 @@
+graft plutous
+global-exclude .gitignore __pycache__ *.py[cod] *checkpoint.ipynb
