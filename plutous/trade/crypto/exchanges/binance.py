@@ -1,11 +1,11 @@
-from ccxt.pro import binance, binanceusdm, binancecoinm
-from ccxt.base.errors import NotSupported, BadSymbol
 from datetime import datetime, timedelta, timezone
+
+from ccxt.base.errors import BadSymbol, NotSupported
+from ccxt.pro import binance, binancecoinm, binanceusdm
 
 from ..utils import add_preprocess, paginate
 
 
-@add_preprocess
 class BinanceBase(binance):
     def describe(self):
         return self.deep_extend(
@@ -248,21 +248,11 @@ class BinanceBase(binance):
         response = await getattr(self, method)(self.extend(request, params))
         return self.parse_incomes(response, market, since, limit)
 
-    async def fetch_commissions(
-        self,
-        symbol=None,
-        since=None,
-        limit=None,
-        params={},
-    ):
+    async def fetch_commissions(self, symbol=None, since=None, limit=None, params={}):
         return await self.fetch_incomes("COMMISSION", symbol, since, limit, params)
 
     async def fetch_funding_history(
-        self,
-        symbol=None,
-        since=None,
-        limit=None,
-        params={},
+        self, symbol=None, since=None, limit=None, params={}
     ):
         return await self.fetch_incomes("FUNDING_FEE", symbol, since, limit, params)
 
@@ -287,7 +277,12 @@ class BinanceBase(binance):
         max_limit=1000,
         max_interval=timedelta(days=30),
     )
-    async def fetch_convert_history(self, since=None, limit=None, params={}):
+    async def fetch_convert_history(
+        self,
+        since=None,
+        limit=None,
+        params={},
+    ):
         await self.load_markets()
         if since is None:
             since = int(
@@ -307,6 +302,7 @@ class BinanceBase(binance):
         return self.parse_convert_histories(trades)
 
 
+@add_preprocess
 class Binance(BinanceBase):
     @paginate(max_limit=1000)
     async def fetch_ohlcv(
@@ -317,13 +313,7 @@ class Binance(BinanceBase):
         limit=None,
         params={},
     ):
-        return await super().fetch_ohlcv(
-            symbol,
-            timeframe,
-            since,
-            limit,
-            params,
-        )
+        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
 
     @paginate(
         max_limit=1000,
@@ -336,14 +326,10 @@ class Binance(BinanceBase):
         limit=None,
         params={},
     ):
-        return await super().fetch_my_trades(
-            symbol,
-            since,
-            limit,
-            params,
-        )
+        return await super().fetch_my_trades(symbol, since, limit, params)
 
 
+@add_preprocess
 class BinanceUsdm(BinanceBase, binanceusdm):
     @paginate(
         max_limit=1000,
@@ -376,6 +362,7 @@ class BinanceUsdm(BinanceBase, binanceusdm):
         )
 
 
+@add_preprocess
 class BinanceCoinm(BinanceBase, binancecoinm):
     @paginate(max_limit=1000)
     async def fetch_my_trades(
