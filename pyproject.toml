@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "plutous_trade_crypto"
+name = "plutous-trade-crypto"
 version = "0.0.1"
 description = "Plutous Crypto Trading Library"
 packages = [{include = "plutous"}]

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from ccxt.base.errors import BadSymbol, NotSupported
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
-from ..utils import add_preprocess, paginate
+from ..utils import paginate
 
 
 class BinanceBase(binance):
@@ -11,6 +11,13 @@ class BinanceBase(binance):
         return self.deep_extend(
             super(BinanceBase, self).describe(),
             {
+                "options": {
+                    "watchFundingRate": {
+                        "name": "markPrice",
+                    },
+                    # get updates every 1000ms or 3000ms
+                    "watchFundingRateRate": 1000
+                },
                 "plutous_funcs": [
                     "parse_c2c_trade",
                     "parse_c2c_trades",
@@ -18,7 +25,7 @@ class BinanceBase(binance):
                     "fetch_c2c_trades",
                     "fetch_commissions",
                     "fetch_wallet_balance",
-                ]
+                ],
             },
         )
 
@@ -301,8 +308,44 @@ class BinanceBase(binance):
         trades = await self.sapi_get_convert_tradeflow(params=query)
         return self.parse_convert_histories(trades)
 
+    async def watch_funding_rate(self, symbol, params={}):
+        await self.load_markets()
+        market = self.market(symbol)
+        options = self.safe_value(self.options, 'watchTrades', {})
+        name = self.safe_string(options, 'name', 'markPrice')
+        messageHash = market["lowercaseId"] + "@" + name
+        type, params = self.handle_market_type_and_params("watchFundingRate", market, params)
+        url = self.urls['api']['ws'][type] + '/' + self.stream(type, messageHash)
+        requestId = self.request_id(url)
+        request = {
+            'method': 'SUBSCRIBE',
+            'params': [
+                messageHash,
+            ],
+            'id': requestId,
+        }
+        subscribe = {
+            'id': requestId,
+        }
+        return await self.watch(url, messageHash, self.extend(request, params), messageHash, subscribe)
 
-@add_preprocess
+    def handle_funding_rate(self, client, message):
+        # mark price update
+        #     {
+        #         "e": "markPriceUpdate",     # Event type
+        #         "E": 1562305380000,         # Event time
+        #         "s": "BTCUSDT",             # Symbol
+        #         "p": "11794.15000000",      # Mark price
+        #         "i": "11784.62659091",      # Index price
+        #         "P": "11784.25641265",      # Estimated Settle Price, only useful in the last hour before the settlement starts
+        #         "r": "0.00038167",          # Funding rate
+        #         "T": 1562306400000          # Next funding time
+        #     }
+
+        
+        return
+
+
 class Binance(BinanceBase):
     @paginate(max_limit=1000)
     async def fetch_ohlcv(
@@ -329,7 +372,6 @@ class Binance(BinanceBase):
         return await super().fetch_my_trades(symbol, since, limit, params)
 
 
-@add_preprocess
 class BinanceUsdm(BinanceBase, binanceusdm):
     @paginate(
         max_limit=1000,
@@ -362,7 +404,6 @@ class BinanceUsdm(BinanceBase, binanceusdm):
         )
 
 
-@add_preprocess
 class BinanceCoinm(BinanceBase, binancecoinm):
     @paginate(max_limit=1000)
     async def fetch_my_trades(

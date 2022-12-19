@@ -11,50 +11,6 @@ logger = logging.getLogger(__name__)
 Coroutine = Callable[[Any], Awaitable[List[Dict[str, Any]]]]
 
 
-def _preprocess(kwargs: dict, co_varnames: tuple[str]):
-    """
-    Update ``since`` in kwargs so that it accepts ``millisecond`` and ``datetime``
-    and ``**kwargs`` to ``params``.
-    """
-    since = kwargs.get("since")
-    if since is not None:
-        if isinstance(since, datetime):
-            kwargs["since"] = int(since.timestamp() * 1000)
-    params = kwargs.get("params", {})
-    for key in kwargs.copy():
-        if key not in co_varnames:
-            params[key] = kwargs.pop(key)
-    kwargs["params"] = params
-
-
-def add_preprocess(cls):
-    """
-    Decorator for a ``ccxt.Exchange`` class to add ``preprocess``
-    to all existing ``fetch_*`` function  with ``params`` in argument.
-    """
-
-    def decorate(func: Coroutine) -> Coroutine:
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs) -> List[Dict[str, Any]]:
-            func_code = func.__code__
-            co_varnames = func_code.co_varnames[: func_code.co_argcount]
-            kwargs.update(zip(co_varnames, args))
-            _preprocess(kwargs, co_varnames)
-            return await func(**kwargs)
-
-        return wrapper
-
-    for attr in dir(cls):
-        if "fetch_" in attr:
-            func: Callable = getattr(cls, attr)
-            func_code = func.__code__
-            co_varnames = func_code.co_varnames[: func_code.co_argcount]
-
-            if "params" in co_varnames:
-                setattr(cls, attr, decorate(func))
-    return cls
-
-
 def paginate(
     id_arg: str = "fromId",
     start_time_arg: str = "startTime",
@@ -112,7 +68,7 @@ def paginate(
 
         async def paginate_over_interval(**kwargs) -> List[Dict[str, Any]]:
             params = kwargs["params"]
-            since = kwargs.get("since") or params.get(start_time_arg)
+            since: int = kwargs.get("since") or params.get(start_time_arg)
             now = int(datetime.now(timezone.utc).timestamp() * 1000)
             end = params.get(end_time_arg, now)
             if "timeframe" in kwargs:
@@ -152,7 +108,6 @@ def paginate(
         async def wrapper(*args, **kwargs) -> List[Dict[str, Any]]:
             co_varnames = func.__code__.co_varnames
             kwargs.update(zip(co_varnames, args))
-            _preprocess(kwargs, co_varnames)
 
             if id_arg in kwargs:
                 return await paginate_over_limit(**kwargs)

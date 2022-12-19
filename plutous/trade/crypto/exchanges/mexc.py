@@ -1,11 +1,8 @@
 from ccxt.pro import mexc
 
-from ..utils import add_preprocess
 
-
-@add_preprocess
 class Mexc(mexc):
-    funding_rate = None
+    funding_rates = None
 
     def describe(self):
         return self.deep_extend(
@@ -47,8 +44,8 @@ class Mexc(mexc):
         #         "ts":1587442022003
         #     }
         #
-        if self.funding_rate is None:
-            self.funding_rate = dict()
+        if self.funding_rates is None:
+            self.funding_rates = dict()
         data = self.safe_value(message, "data", {})
         data["fundingRate"] = self.safe_number(data, "rate")
         data["timestamp"] = self.safe_integer(message, "ts")
@@ -56,7 +53,7 @@ class Mexc(mexc):
         market = self.safe_market(marketId)
         symbol = market["symbol"]
         funding_rate = self.parse_funding_rate(data, market)
-        self.funding_rate[symbol] = funding_rate
+        self.funding_rates[symbol] = funding_rate
         messageHash = "funding.rate:" + symbol
         client.resolve(funding_rate, messageHash)
         return message
