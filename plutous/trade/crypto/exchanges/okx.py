@@ -87,8 +87,6 @@ class Okx(okx):
         #         code: '60012'
         #     }
         #
-        #
-        #
         if message == "pong":
             return self.handle_pong(client, message)
         # table = self.safe_string(message, 'table')
