@@ -7,6 +7,8 @@ from ..utils import paginate
 
 
 class BinanceBase(binance):
+    funding_rates = None
+
     def describe(self):
         return self.deep_extend(
             super(BinanceBase, self).describe(),
@@ -16,7 +18,7 @@ class BinanceBase(binance):
                         "name": "markPrice",
                     },
                     # get updates every 1000ms or 3000ms
-                    "watchFundingRateRate": 1000
+                    "watchFundingRateRate": 3000,
                 },
                 "plutous_funcs": [
                     "parse_c2c_trade",
@@ -311,23 +313,64 @@ class BinanceBase(binance):
     async def watch_funding_rate(self, symbol, params={}):
         await self.load_markets()
         market = self.market(symbol)
-        options = self.safe_value(self.options, 'watchTrades', {})
-        name = self.safe_string(options, 'name', 'markPrice')
+        options = self.safe_value(self.options, "watchFundingRate", {})
+        name = self.safe_string(options, "name", "markPrice")
         messageHash = market["lowercaseId"] + "@" + name
-        type, params = self.handle_market_type_and_params("watchFundingRate", market, params)
-        url = self.urls['api']['ws'][type] + '/' + self.stream(type, messageHash)
+
+        wfrRate = self.safe_integer(self.options, "watchFundingRateRate", 3000)
+        wfrRate = self.safe_integer(params, "rate", wfrRate)
+        if (wfrRate != 3000) and (wfrRate != 1000):
+            raise NotSupported(" watchFundingRate() supports rate 3000 or 1000 only")
+        if wfrRate == 1000:
+            messageHash += "@1"
+        type, params = self.handle_market_type_and_params(
+            "watchFundingRate", market, params
+        )
+        url = self.urls["api"]["ws"][type] + "/" + self.stream(type, messageHash)
         requestId = self.request_id(url)
         request = {
-            'method': 'SUBSCRIBE',
-            'params': [
+            "method": "SUBSCRIBE",
+            "params": [
                 messageHash,
             ],
-            'id': requestId,
+            "id": requestId,
         }
         subscribe = {
-            'id': requestId,
+            "id": requestId,
         }
-        return await self.watch(url, messageHash, self.extend(request, params), messageHash, subscribe)
+        return await self.watch(
+            url, messageHash, self.extend(request, params), messageHash, subscribe
+        )
+
+    async def watch_funding_rates(self, params={}):
+        await self.load_markets()
+        options = self.safe_value(self.options, "watchFundingRate", {})
+        name = self.safe_string(options, "name", "markPrice")
+        messageHash = "!" + name + "@" + "arr"
+
+        wfrRate = self.safe_integer(self.options, "watchFundingRateRate", 3000)
+        if (wfrRate != 3000) and (wfrRate != 1000):
+            raise NotSupported(" watchFundingRates() supports rate 3000 or 1000 only")
+        if wfrRate == 1000:
+            messageHash += "@1"
+        defaultType = self.safe_string(self.options, "defaultType", "future")
+        type = self.safe_string(params, "type", defaultType)
+        params = self.omit(params, "type")
+        url = self.urls["api"]["ws"][type] + "/" + self.stream(type, messageHash)
+        requestId = self.request_id(url)
+        request = {
+            "method": "SUBSCRIBE",
+            "params": [
+                messageHash,
+            ],
+            "id": requestId,
+        }
+        subscribe = {
+            "id": requestId,
+        }
+        return await self.watch(
+            url, messageHash, self.extend(request, params), messageHash, subscribe
+        )
 
     def handle_funding_rate(self, client, message):
         # mark price update
@@ -341,9 +384,108 @@ class BinanceBase(binance):
         #         "r": "0.00038167",          # Funding rate
         #         "T": 1562306400000          # Next funding time
         #     }
+        if self.funding_rates is None:
+            self.funding_rates = dict()
+        marketId = self.safe_string(message, "s")
+        market = self.safe_market(marketId)
+        symbol = market["symbol"]
+        lowerCaseId = self.safe_string_lower(message, "s")
+        options = self.safe_value(self.options, "watchFundingRate", {})
+        name = self.safe_string(options, "name", "markPrice")
+        messageHash = lowerCaseId + "@" + name
+        wfrRate = self.safe_integer(self.options, "watchFundingRateRate", 3000)
+        if (wfrRate != 3000) and (wfrRate != 1000):
+            raise NotSupported(" watchFundingRates() supports rate 3000 or 1000 only")
+        if wfrRate == 1000:
+            messageHash += "@1"
+        funding_rate = self.parse_ws_funding_rate(message, market)
+        self.funding_rates[symbol] = funding_rate
+        client.resolve(funding_rate, messageHash)
 
-        
-        return
+    def handle_funding_rates(self, client, message):
+        # mark price update
+            # [
+            #     {
+            #         "e": "markPriceUpdate",     # Event type
+            #         "E": 1562305380000,         # Event time
+            #         "s": "BTCUSDT",             # Symbol
+            #         "p": "11794.15000000",      # Mark price
+            #         "i": "11784.62659091",      # Index price
+            #         "P": "11784.25641265",      # Estimated Settle Price, only useful in the last hour before the settlement starts
+            #         "r": "0.00038167",          # Funding rate
+            #         "T": 1562306400000          # Next funding time
+            #     }
+            # ]
+        funding_rates = []
+        if self.funding_rates is None:
+            self.funding_rates = dict()
+
+        options = self.safe_value(self.options, "watchFundingRate", {})
+        name = self.safe_string(options, "name", "markPrice")
+        messageHash = "!" + name + "@" + "arr"
+        wfrRate = self.safe_integer(self.options, "watchFundingRateRate", 3000)
+        if (wfrRate != 3000) and (wfrRate != 1000):
+            raise NotSupported(" watchFundingRates() supports rate 3000 or 1000 only")
+        if wfrRate == 1000:
+            messageHash += "@1"
+        for msg in message:
+            marketId = self.safe_string(msg, "s")
+            market = self.safe_market(marketId)
+            symbol = market["symbol"]
+            funding_rate = self.parse_ws_funding_rate(msg, market)
+            self.funding_rates[symbol] = funding_rate
+            funding_rates.append(funding_rate)
+
+        client.resolve(funding_rates, messageHash)
+
+    def parse_ws_funding_rate(self, message, market=None):
+        timestamp = self.safe_integer(message, "E")
+        marketId = self.safe_string(message, "s")
+        symbol = self.safe_symbol(marketId, market)
+        markPrice = self.safe_number(message, "p")
+        indexPrice = self.safe_number(message, "i")
+        estimatedSettlePrice = self.safe_number(message, "P")
+        fundingRate = self.safe_number(message, "r")
+        fundingTime = self.safe_integer(message, "T")
+        return {
+            "info": message,
+            "symbol": symbol,
+            "markPrice": markPrice,
+            "indexPrice": indexPrice,
+            "interestRate": None,
+            "estimatedSettlePrice": estimatedSettlePrice,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "fundingRate": fundingRate,
+            "fundingTimestamp": fundingTime,
+            "fundingDatetime": self.iso8601(fundingTime),
+            "nextFundingRate": None,
+            "nextFundingTimestamp": None,
+            "nextFundingDatetime": None,
+            "previousFundingRate": None,
+            "previousFundingTimestamp": None,
+            "previousFundingDatetime": None,
+        }
+
+    def handle_message(self, client, message):
+
+        methods = {
+            "markPriceUpdate": self.handle_funding_rate,
+        }
+        ls_methods = {
+            "markPriceUpdate": self.handle_funding_rates,
+        }
+
+        if isinstance(message, list):
+            msg = message[0] 
+            event = self.safe_string(msg, "e")
+            method = self.safe_value(ls_methods, event)
+        else:
+            event = self.safe_string(message, "e")
+            method = self.safe_value(methods, event)
+        if method is not None:
+            return method(client, message)
+        return super(BinanceBase, self).handle_message(client, message)
 
 
 class Binance(BinanceBase):
