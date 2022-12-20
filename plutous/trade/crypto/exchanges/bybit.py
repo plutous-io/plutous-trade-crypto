@@ -70,10 +70,10 @@ class Bybit(bybit):
         #     },
         # }
         symbol = self.safe_string(message, "symbol")
-        markPrice = self.safe_number(message, "markPrice")
-        indexPrice = self.safe_number(message, "indexPrice")
         timestamp = self.safe_integer(message, "timestamp")
         info = self.safe_value(message, "info", {})
+        markPrice = self.safe_number(info, "markPrice")
+        indexPrice = self.safe_number(info, "indexPrice")
         fundingRate = self.safe_number(info, "fundingRate")
         fundingTime = self.safe_string(info, "fundingTime")
         fundingTimestamp = self.parse_date(fundingTime)
