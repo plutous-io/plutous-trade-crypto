@@ -1,4 +1,5 @@
 from ccxt.pro import bitget
+from ccxt.base.errors import BadSymbol
 
 
 class Bitget(bitget):
@@ -95,4 +96,79 @@ class Bitget(bitget):
             "previousFundingRate": None,
             "previousFundingTimestamp": None,
             "previousFundingDatetime": None,
+        }
+
+    #patch
+    async def fetch_funding_rate(self, symbol, params={}):
+        """
+        fetch the current funding rate
+        :param str symbol: unified market symbol
+        :param dict params: extra parameters specific to the bitget api endpoint
+        :returns dict: a `funding rate structure <https://docs.ccxt.com/en/latest/manual.html#funding-rate-structure>`
+        """
+        await self.load_markets()
+        market = self.market(symbol)
+        if not market['swap']:
+            raise BadSymbol(self.id + ' fetchFundingRate() supports swap contracts only')
+        request = {
+            'symbol': market['id'],
+        }
+        fundingRate = await self.publicMixGetMarketCurrentFundRate(self.extend(request, params))
+        fundingTime = await self.publicMixGetMarketFundingTime(self.extend(request, params))
+        # Current Fund Rate
+        #     {
+        #         "code": "00000",
+        #         "msg": "success",
+        #         "requestTime": 1652401684275,
+        #         "data": {
+        #             "symbol": "BTCUSDT_UMCBL",
+        #             "fundingRate": "-0.000182"
+        #         }
+        #     }
+        #
+        # Funding Time
+        #     {
+        #         "code":"00000",
+        #         "data":{
+        #             "symbol":"BTCUSDT_UMCBL",
+        #             "fundingTime":"1627311600000"
+        #         },
+        #         "msg":"success",
+        #         "requestTime":1627291915767
+        #     }
+        fundingRateData = self.safe_value(fundingRate, 'data', {})
+        fundingTimeData = self.safe_value(fundingTime, 'data', {})
+        data = self.extend(fundingRateData, fundingTimeData)
+        return self.parse_funding_rate(data, market)
+
+    #patch
+    def parse_funding_rate(self, contract, market=None):
+        #
+        #     {
+        #         "symbol": "BTCUSDT_UMCBL",
+        #         "fundingRate": "-0.000182",
+        #         "fundingTime": "1627311600000"
+        #     }
+        #
+        marketId = self.safe_string(contract, 'symbol')
+        symbol = self.safe_symbol(marketId, market)
+        fundingTime = self.safe_integer(contract, 'fundingTime')
+        return {
+            'info': contract,
+            'symbol': symbol,
+            'markPrice': None,
+            'indexPrice': None,
+            'interestRate': None,
+            'estimatedSettlePrice': None,
+            'timestamp': None,
+            'datetime': None,
+            'fundingRate': self.safe_number(contract, 'fundingRate'),
+            'fundingTimestamp': fundingTime,
+            'fundingDatetime': self.iso8601(fundingTime),
+            'nextFundingRate': None,
+            'nextFundingTimestamp': None,
+            'nextFundingDatetime': None,
+            'previousFundingRate': None,
+            'previousFundingTimestamp': None,
+            'previousFundingDatetime': None,
         }

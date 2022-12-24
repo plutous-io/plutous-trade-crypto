@@ -146,4 +146,6 @@ class Huobi(huobi):
         }
         if method is not None:
             subscription["method"] = method
-        return await self.watch(url, messageHash, self.extend(request, params), messageHash, subscription)
+        return await self.watch(
+            url, messageHash, self.extend(request, params), messageHash, subscription
+        )

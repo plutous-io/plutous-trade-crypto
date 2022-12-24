@@ -404,18 +404,18 @@ class BinanceBase(binance):
 
     def handle_funding_rates(self, client, message):
         # mark price update
-            # [
-            #     {
-            #         "e": "markPriceUpdate",     # Event type
-            #         "E": 1562305380000,         # Event time
-            #         "s": "BTCUSDT",             # Symbol
-            #         "p": "11794.15000000",      # Mark price
-            #         "i": "11784.62659091",      # Index price
-            #         "P": "11784.25641265",      # Estimated Settle Price, only useful in the last hour before the settlement starts
-            #         "r": "0.00038167",          # Funding rate
-            #         "T": 1562306400000          # Next funding time
-            #     }
-            # ]
+        # [
+        #     {
+        #         "e": "markPriceUpdate",     # Event type
+        #         "E": 1562305380000,         # Event time
+        #         "s": "BTCUSDT",             # Symbol
+        #         "p": "11794.15000000",      # Mark price
+        #         "i": "11784.62659091",      # Index price
+        #         "P": "11784.25641265",      # Estimated Settle Price, only useful in the last hour before the settlement starts
+        #         "r": "0.00038167",          # Funding rate
+        #         "T": 1562306400000          # Next funding time
+        #     }
+        # ]
         funding_rates = []
         if self.funding_rates is None:
             self.funding_rates = dict()
@@ -477,7 +477,7 @@ class BinanceBase(binance):
         }
 
         if isinstance(message, list):
-            msg = message[0] 
+            msg = message[0]
             event = self.safe_string(msg, "e")
             method = self.safe_value(ls_methods, event)
         else:
