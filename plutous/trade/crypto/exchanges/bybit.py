@@ -97,3 +97,36 @@ class Bybit(bybit):
             "previousFundingTimestamp": None,
             "previousFundingDatetime": None,
         }
+
+    async def fetch_funding_rates(self, symbols=None, params={}):
+        results: dict = await self.fetch_tickers(symbols, params)
+        for key, value in results.items():
+            results[key] = self.parse_funding_rate_from_ticker(value)
+        return results
+
+    def parse_funding_rate_from_ticker(self, ticker):
+        info = self.safe_value(ticker, "info", {})
+        markPrice = self.safe_number(info, "markPrice")
+        indexPrice = self.safe_number(info, "indexPrice")
+        fundingRate = self.safe_number(info, "fundingRate")
+        fundingTimestamp = self.safe_integer(info, "nextFundingTime")
+        fundingDatetime = self.iso8601(fundingTimestamp)
+        return {
+            "info": info,
+            "symbol": ticker["symbol"],
+            "markPrice": markPrice,
+            "indexPrice": indexPrice,
+            "interestRate": None,
+            "estimatedSettlePrice": None,
+            "timestamp": ticker["timestamp"],
+            "datetime": ticker["datetime"],
+            "fundingRate": fundingRate,
+            "fundingTimestamp": fundingTimestamp,
+            "fundingDatetime": fundingDatetime,
+            "nextFundingRate": None,
+            "nextFundingTimestamp": None,
+            "nextFundingDatetime": None,
+            "previousFundingRate": None,
+            "previousFundingTimestamp": None,
+            "previousFundingDatetime": None,
+        }
