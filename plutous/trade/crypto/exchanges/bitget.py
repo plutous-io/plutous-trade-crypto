@@ -1,3 +1,5 @@
+import asyncio
+
 from ccxt.pro import bitget
 from ccxt.base.errors import BadSymbol
 
@@ -113,8 +115,10 @@ class Bitget(bitget):
         request = {
             'symbol': market['id'],
         }
-        fundingRate = await self.publicMixGetMarketCurrentFundRate(self.extend(request, params))
-        fundingTime = await self.publicMixGetMarketFundingTime(self.extend(request, params))
+        fundingRate, fundingTime = await asyncio.gather(
+            self.publicMixGetMarketCurrentFundRate(self.extend(request, params)),
+            self.publicMixGetMarketFundingTime(self.extend(request, params)),
+        )
         # Current Fund Rate
         #     {
         #         "code": "00000",
