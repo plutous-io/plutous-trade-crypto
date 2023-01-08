@@ -1,6 +1,6 @@
 from ccxt.pro.coinex import coinex
 
 
-class Coinex(coinex):
+class CoinEx(coinex):
     pass
 

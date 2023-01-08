@@ -100,7 +100,7 @@ class Bitget(bitget):
             "previousFundingDatetime": None,
         }
 
-    #patch
+    # patch
     async def fetch_funding_rate(self, symbol, params={}):
         """
         fetch the current funding rate
@@ -110,10 +110,12 @@ class Bitget(bitget):
         """
         await self.load_markets()
         market = self.market(symbol)
-        if not market['swap']:
-            raise BadSymbol(self.id + ' fetchFundingRate() supports swap contracts only')
+        if not market["swap"]:
+            raise BadSymbol(
+                self.id + " fetchFundingRate() supports swap contracts only"
+            )
         request = {
-            'symbol': market['id'],
+            "symbol": market["id"],
         }
         fundingRate, fundingTime = await asyncio.gather(
             self.publicMixGetMarketCurrentFundRate(self.extend(request, params)),
@@ -140,12 +142,12 @@ class Bitget(bitget):
         #         "msg":"success",
         #         "requestTime":1627291915767
         #     }
-        fundingRateData = self.safe_value(fundingRate, 'data', {})
-        fundingTimeData = self.safe_value(fundingTime, 'data', {})
+        fundingRateData = self.safe_value(fundingRate, "data", {})
+        fundingTimeData = self.safe_value(fundingTime, "data", {})
         data = self.extend(fundingRateData, fundingTimeData)
         return self.parse_funding_rate(data, market)
 
-    #patch
+    # patch
     def parse_funding_rate(self, contract, market=None):
         #
         #     {
@@ -154,25 +156,25 @@ class Bitget(bitget):
         #         "fundingTime": "1627311600000"
         #     }
         #
-        marketId = self.safe_string(contract, 'symbol')
+        marketId = self.safe_string(contract, "symbol")
         symbol = self.safe_symbol(marketId, market)
-        fundingTime = self.safe_integer(contract, 'fundingTime')
+        fundingTime = self.safe_integer(contract, "fundingTime")
         return {
-            'info': contract,
-            'symbol': symbol,
-            'markPrice': None,
-            'indexPrice': None,
-            'interestRate': None,
-            'estimatedSettlePrice': None,
-            'timestamp': None,
-            'datetime': None,
-            'fundingRate': self.safe_number(contract, 'fundingRate'),
-            'fundingTimestamp': fundingTime,
-            'fundingDatetime': self.iso8601(fundingTime),
-            'nextFundingRate': None,
-            'nextFundingTimestamp': None,
-            'nextFundingDatetime': None,
-            'previousFundingRate': None,
-            'previousFundingTimestamp': None,
-            'previousFundingDatetime': None,
+            "info": contract,
+            "symbol": symbol,
+            "markPrice": None,
+            "indexPrice": None,
+            "interestRate": None,
+            "estimatedSettlePrice": None,
+            "timestamp": None,
+            "datetime": None,
+            "fundingRate": self.safe_number(contract, "fundingRate"),
+            "fundingTimestamp": fundingTime,
+            "fundingDatetime": self.iso8601(fundingTime),
+            "nextFundingRate": None,
+            "nextFundingTimestamp": None,
+            "nextFundingDatetime": None,
+            "previousFundingRate": None,
+            "previousFundingTimestamp": None,
+            "previousFundingDatetime": None,
         }
