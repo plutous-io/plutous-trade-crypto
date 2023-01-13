@@ -10,6 +10,7 @@ from .kucoin import Kucoin, KucoinFutures
 from .mexc import Mexc
 from .okx import Okx
 from .phemex import Phemex
+from .woo import Woo
 
 Exchange = Union[
     Binance,
@@ -25,4 +26,5 @@ Exchange = Union[
     Mexc,
     Okx,
     Phemex,
+    Woo,
 ]

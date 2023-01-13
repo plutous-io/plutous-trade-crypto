@@ -1,6 +1,6 @@
 import math
-from ccxt.pro import kucoin
-from ccxt.async_support import kucoinfutures
+
+from ccxt.pro import kucoin, kucoinfutures
 
 
 class Kucoin(kucoin):
@@ -25,8 +25,12 @@ class KucoinFutures(kucoinfutures):
         symbols = self.market_symbols(symbols)
         for key, market in markets.items():
             if market["swap"]:
-                nextFundingRateTime: int = self.safe_integer(market["info"], "nextFundingRateTime")
-                market["info"]["nextFundingRateTime"] = math.floor((current_time + nextFundingRateTime) / 3600000) * 3600000
+                nextFundingRateTime: int = self.safe_integer(
+                    market["info"], "nextFundingRateTime"
+                )
+                market["info"]["nextFundingRateTime"] = (
+                    math.floor((current_time + nextFundingRateTime) / 3600000) * 3600000
+                )
                 funding_rates[key] = self.parse_funding_rate_from_market(market)
 
         return self.filter_by_array(funding_rates, "symbol", symbols)
