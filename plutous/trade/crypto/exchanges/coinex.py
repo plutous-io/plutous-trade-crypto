@@ -1,8 +1,14 @@
-from ccxt.pro.coinex import coinex
 from ccxt.base.errors import BadSymbol
+from ccxt.pro.coinex import coinex
 
 
 class CoinEx(coinex):
+    def describe(self):
+        return self.deep_extend(
+            super(CoinEx, self).describe(),
+            {"plutous_funcs": []},
+        )
+
     async def fetch_funding_rate(self, symbol, params={}):
         """
         fetch the current funding rate
@@ -12,12 +18,16 @@ class CoinEx(coinex):
         """
         await self.load_markets()
         market = self.market(symbol)
-        if not market['swap']:
-            raise BadSymbol(self.id + ' fetchFundingRate() supports swap contracts only')
+        if not market["swap"]:
+            raise BadSymbol(
+                self.id + " fetchFundingRate() supports swap contracts only"
+            )
         request = {
-            'market': market['id'],
+            "market": market["id"],
         }
-        response = await self.perpetualPublicGetMarketTicker(self.extend(request, params))
+        response = await self.perpetualPublicGetMarketTicker(
+            self.extend(request, params)
+        )
         #
         #     {
         #          "code": 0,
@@ -50,9 +60,9 @@ class CoinEx(coinex):
         #         "message": "OK"
         #     }
         #
-        data = self.safe_value(response, 'data', {})
-        ticker = self.safe_value(data, 'ticker', {})
-        timestamp = self.safe_integer(data, 'date')
+        data = self.safe_value(response, "data", {})
+        ticker = self.safe_value(data, "ticker", {})
+        timestamp = self.safe_integer(data, "date")
         return self.parse_funding_rate(ticker, market, timestamp)
 
     def parse_funding_rate(self, contract, market=None, timestamp=None):
@@ -82,27 +92,27 @@ class CoinEx(coinex):
         #         "sell_amount": "0.9388"
         #     }
         #
-        fundingDelta = self.safe_integer(contract, 'funding_time') * 60 * 1000
+        fundingDelta = self.safe_integer(contract, "funding_time") * 60 * 1000
         fundingHour = (timestamp + fundingDelta) / 3600000
         fundingTimestamp = int(round(fundingHour)) * 3600000
         return {
-            'info': contract,
-            'symbol': self.safe_symbol(None, market),
-            'markPrice': self.safe_number(contract, 'sign_price'),
-            'indexPrice': self.safe_number(contract, 'index_price'),
-            'interestRate': None,
-            'estimatedSettlePrice': None,
-            'timestamp': timestamp,
-            'datetime': self.iso8601(timestamp),
-            'fundingRate': self.safe_number(contract, 'funding_rate_next'),
-            'fundingTimestamp': fundingTimestamp,
-            'fundingDatetime': self.iso8601(fundingTimestamp),
-            'nextFundingRate': self.safe_number(contract, 'funding_rate_predict'),
-            'nextFundingTimestamp': None,
-            'nextFundingDatetime': None,
-            'previousFundingRate': self.safe_number(contract, 'funding_rate_last'),
-            'previousFundingTimestamp': None,
-            'previousFundingDatetime': None,
+            "info": contract,
+            "symbol": self.safe_symbol(None, market),
+            "markPrice": self.safe_number(contract, "sign_price"),
+            "indexPrice": self.safe_number(contract, "index_price"),
+            "interestRate": None,
+            "estimatedSettlePrice": None,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "fundingRate": self.safe_number(contract, "funding_rate_next"),
+            "fundingTimestamp": fundingTimestamp,
+            "fundingDatetime": self.iso8601(fundingTimestamp),
+            "nextFundingRate": self.safe_number(contract, "funding_rate_predict"),
+            "nextFundingTimestamp": None,
+            "nextFundingDatetime": None,
+            "previousFundingRate": self.safe_number(contract, "funding_rate_last"),
+            "previousFundingTimestamp": None,
+            "previousFundingDatetime": None,
         }
 
     async def fetch_funding_rates(self, symbols=None, params={}):
@@ -119,8 +129,10 @@ class CoinEx(coinex):
         if symbols is not None:
             symbol = self.safe_value(symbols, 0)
             market = self.market(symbol)
-            if not market['swap']:
-                raise BadSymbol(self.id + ' fetchFundingRates() supports swap contracts only')
+            if not market["swap"]:
+                raise BadSymbol(
+                    self.id + " fetchFundingRates() supports swap contracts only"
+                )
         response = await self.perpetualPublicGetMarketTickerAll(params)
         #
         #     {
@@ -155,15 +167,15 @@ class CoinEx(coinex):
         #         },
         #         "message": "OK"
         #     }
-        data = self.safe_value(response, 'data', {})
-        tickers = self.safe_value(data, 'ticker', {})
-        timestamp = self.safe_integer(data, 'date')
+        data = self.safe_value(response, "data", {})
+        tickers = self.safe_value(data, "ticker", {})
+        timestamp = self.safe_integer(data, "date")
         result = []
         marketIds = list(tickers.keys())
         for i in range(0, len(marketIds)):
             marketId = marketIds[i]
-            if marketId.find('_') == -1:  # skip _signprice and _indexprice
-                market = self.safe_market(marketId, None, None, 'swap')
+            if marketId.find("_") == -1:  # skip _signprice and _indexprice
+                market = self.safe_market(marketId, None, None, "swap")
                 ticker = tickers[marketId]
                 result.append(self.parse_funding_rate(ticker, market, timestamp))
-        return self.filter_by_array(result, 'symbol', symbols)
+        return self.filter_by_array(result, "symbol", symbols)
