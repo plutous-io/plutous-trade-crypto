@@ -1,5 +1,4 @@
 from ccxt.pro import bybit
-from ccxt.base.errors import BadSymbol
 
 
 class Bybit(bybit):
@@ -8,7 +7,12 @@ class Bybit(bybit):
     def describe(self):
         return self.deep_extend(
             super(Bybit, self).describe(),
-            {"plutous_funcs": []},
+            {
+                "has": {
+                    "fetchFundingHistory": True,
+                },
+                "plutous_funcs": [],
+            },
         )
 
     async def watch_funding_rate(self, symbol, params={}):
@@ -98,3 +102,124 @@ class Bybit(bybit):
             "previousFundingTimestamp": None,
             "previousFundingDatetime": None,
         }
+
+    async def fetch_funding_history(
+        self, symbol=None, since=None, limit=None, params={}
+    ):
+        await self.load_markets()
+        market = self.market(symbol)
+        request = {"symbol": market["id"], "exec_type": "Funding"}
+        if since is not None:
+            request["start_time"] = since
+        if limit is not None:
+            request["limit"] = limit
+        response = await self.privateGetContractV3PrivateExecutionList(
+            self.extend(request, params)
+        )
+        # contract v3
+        #
+        #     {
+        #         "retCode": 0,
+        #         "retMsg": "OK",
+        #         "result": {
+        #             "list": [
+        #                 {
+        #                     "symbol": "BITUSDT",
+        #                     "execFee": "0.001356",
+        #                     "execId": "499e1a2a-c664-55db-bbf0-78ad31b7b033",
+        #                     "execPrice": "0.452",
+        #                     "execQty": "5.0",
+        #                     "execType": "Trade",
+        #                     "execValue": "2.26",
+        #                     "feeRate": "0.0006",
+        #                     "lastLiquidityInd": "RemovedLiquidity",
+        #                     "leavesQty": "0.0",
+        #                     "orderId": "1d40db82-b1f6-4340-9190-650eeddd440b",
+        #                     "orderLinkId": "",
+        #                     "orderPrice": "0.430",
+        #                     "orderQty": "5.0",
+        #                     "orderType": "Market",
+        #                     "stopOrderType": "UNKNOWN",
+        #                     "side": "Sell",
+        #                     "execTime": "1657269236943",
+        #                     "closedSize": "5.0"
+        #                 },
+        #                 {
+        #                     "symbol": "BITUSDT",
+        #                     "execFee": "0.004068",
+        #                     "execId": "ed090e6a-afc0-5cb5-b51d-039592a44ec5",
+        #                     "execPrice": "0.452",
+        #                     "execQty": "15.0",
+        #                     "execType": "Trade",
+        #                     "execValue": "6.78",
+        #                     "feeRate": "0.0006",
+        #                     "lastLiquidityInd": "RemovedLiquidity",
+        #                     "leavesQty": "0.0",
+        #                     "orderId": "d34d40a1-2475-4552-9e54-347a27282ec0",
+        #                     "orderLinkId": "",
+        #                     "orderPrice": "0.429",
+        #                     "orderQty": "15.0",
+        #                     "orderType": "Market",
+        #                     "stopOrderType": "UNKNOWN",
+        #                     "side": "Sell",
+        #                     "execTime": "1657268340170",
+        #                     "closedSize": "15.0"
+        #                 }
+        #             ],
+        #             "nextPageCursor": ""
+        #         },
+        #         "retExtInfo": null,
+        #         "time": 1658911518442
+        #     }
+        #
+        result = self.safe_value(response, "result", {})
+        funding_histories = self.safe_value(result, "list", [])
+        return self.parse_funding_histories(funding_histories, market, since, limit)
+
+    def parse_funding_history(self, funding_history, market=None):
+        #
+        #     {
+        #         "symbol": "BITUSDT",
+        #         "execFee": "0.001356",
+        #         "execId": "499e1a2a-c664-55db-bbf0-78ad31b7b033",
+        #         "execPrice": "0.452",
+        #         "execQty": "5.0",
+        #         "execType": "Trade",
+        #         "execValue": "2.26",
+        #         "feeRate": "0.0006",
+        #         "lastLiquidityInd": "RemovedLiquidity",
+        #         "leavesQty": "0.0",
+        #         "orderId": "1d40db82-b1f6-4340-9190-650eeddd440b",
+        #         "orderLinkId": "",
+        #         "orderPrice": "0.430",
+        #         "orderQty": "5.0",
+        #         "orderType": "Market",
+        #         "stopOrderType": "UNKNOWN",
+        #         "side": "Sell",
+        #         "execTime": "1657269236943",
+        #         "closedSize": "5.0"
+        #     }
+        #
+        timestamp = self.safe_integer(funding_history, "execTime")
+        symbol = self.safe_string(funding_history, "symbol")
+        market = self.safe_market(symbol, market, None, "swap")
+        amount = self.safe_number(funding_history, "execFee")
+        currencyId = market["quote"]
+        code = self.safe_currency_code(currencyId)
+        return {
+            "info": funding_history,
+            "symbol": symbol,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "amount": amount,
+            "code": code,
+        }
+
+    def parse_funding_histories(
+        self, funding_histories, market=None, since=None, limit=None
+    ):
+        result = []
+        for i in range(0, len(funding_histories)):
+            result.append(self.parse_funding_history(funding_histories[i]))
+        sorted = self.sort_by(result, "timestamp")
+        return self.filter_by_since_limit(sorted, since, limit)

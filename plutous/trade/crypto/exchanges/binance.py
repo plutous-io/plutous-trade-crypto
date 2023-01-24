@@ -13,6 +13,12 @@ class BinanceBase(binance):
         return self.deep_extend(
             super(BinanceBase, self).describe(),
             {
+                "has": {
+                    "fetchC2CTrades": True,
+                    "fetchIncomes": True,
+                    "fetchCommissions": True,
+                    "fetchWalletBalance": True,
+                },
                 "options": {
                     "watchFundingRate": {
                         "name": "markPrice",
@@ -221,15 +227,25 @@ class BinanceBase(binance):
 
     async def fetch_incomes(
         self,
-        income_type=None,
         symbol=None,
         since=None,
         limit=None,
+        income_type=None,
         params={},
     ):
-        defaultType = "future"
+        await self.load_markets()
         market = None
+        method = None
         request = {}
+        if symbol is not None:
+            market = self.market(symbol)
+            request["symbol"] = market["id"]
+            if not market["swap"]:
+                raise NotSupported(
+                    self.id + " fetchIncomes() supports swap contracts only"
+                )
+        subType = None
+        subType, params = self.handle_sub_type_and_params("fetchIncomes", None, params)
         if since is not None:
             request["startTime"] = since
         if limit is not None:
@@ -238,17 +254,14 @@ class BinanceBase(binance):
             request[
                 "incomeType"
             ] = income_type  # "TRANSFER"，"WELCOME_BONUS", "REALIZED_PNL"，"FUNDING_FEE", "COMMISSION" and "INSURANCE_CLEAR"
-
-        await self.load_markets()
-        if symbol is not None:
-            market = self.market(symbol)
-            request["symbol"] = market["id"]
-        defaultType = self.safe_string(self.options, "defaultType", defaultType)
+        defaultType = self.safe_string_2(
+            self.options, "fetchIncomes", "defaultType", "future"
+        )
         type = self.safe_string(params, "type", defaultType)
         params = self.omit(params, "type")
-        if (type == "future") or (type == "linear"):
+        if self.is_linear(type, subType):
             method = "fapiPrivateGetIncome"
-        elif (type == "delivery") or (type == "inverse"):
+        elif self.is_inverse(type, subType):
             method = "dapiPrivateGetIncome"
         else:
             raise NotSupported(
@@ -258,12 +271,12 @@ class BinanceBase(binance):
         return self.parse_incomes(response, market, since, limit)
 
     async def fetch_commissions(self, symbol=None, since=None, limit=None, params={}):
-        return await self.fetch_incomes("COMMISSION", symbol, since, limit, params)
+        return await self.fetch_incomes(symbol, since, limit, "COMMISSION", params)
 
     async def fetch_funding_history(
         self, symbol=None, since=None, limit=None, params={}
     ):
-        return await self.fetch_incomes("FUNDING_FEE", symbol, since, limit, params)
+        return await self.fetch_incomes(symbol, since, limit, "FUNDING_FEE", params)
 
     @paginate(
         max_limit=100,
@@ -538,10 +551,10 @@ class BinanceUsdm(BinanceBase, binanceusdm):
         params={},
     ):
         return await super().fetch_incomes(
-            income_type,
             symbol,
             since,
             limit,
+            income_type,
             params,
         )
 
@@ -569,4 +582,4 @@ class BinanceCoinm(BinanceBase, binancecoinm):
         limit=None,
         params={},
     ):
-        return await super().fetch_incomes(income_type, symbol, since, limit, params)
+        return await super().fetch_incomes(symbol, since, limit, income_type, params)

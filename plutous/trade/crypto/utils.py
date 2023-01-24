@@ -1,14 +1,14 @@
-from typing import Callable, Optional, Awaitable, List, Dict, Any
-from datetime import datetime, timedelta, timezone
-import numpy as np
+import asyncio
 import functools
 import logging
-import asyncio
-import ccxt
+from datetime import datetime, timedelta, timezone
+from typing import Any, Awaitable, Callable, Optional
 
+import ccxt
+import numpy as np
 
 logger = logging.getLogger(__name__)
-Coroutine = Callable[[Any], Awaitable[List[Dict[str, Any]]]]
+Coroutine = Callable[..., Awaitable[list[dict[str, Any]]]]
 
 
 def paginate(
@@ -42,7 +42,7 @@ def paginate(
     """
 
     def decorator(func: Coroutine) -> Coroutine:
-        async def paginate_over_limit(**kwargs) -> List[Dict[str, Any]]:
+        async def paginate_over_limit(**kwargs) -> list[dict[str, Any]]:
             params = kwargs["params"]
             limit = kwargs.get("limit") or float("inf")
             limit_arg = min(limit, max_limit)
@@ -66,7 +66,7 @@ def paginate(
                 limit -= max_limit
             return all_records
 
-        async def paginate_over_interval(**kwargs) -> List[Dict[str, Any]]:
+        async def paginate_over_interval(**kwargs) -> list[dict[str, Any]]:
             params = kwargs["params"]
             since: int = kwargs.get("since") or params.get(start_time_arg)
             now = int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -105,7 +105,7 @@ def paginate(
             return records
 
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs) -> List[Dict[str, Any]]:
+        async def wrapper(*args, **kwargs) -> list[dict[str, Any]]:
             co_varnames = func.__code__.co_varnames
             kwargs.update(zip(co_varnames, args))
 
