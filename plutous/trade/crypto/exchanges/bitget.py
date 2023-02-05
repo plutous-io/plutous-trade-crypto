@@ -233,10 +233,10 @@ class Bitget(bitget):
         #     "nextFlag": false,
         #     "preFlag": false
         # }
-        #
+        
         data = self.safe_value(response, "data", {})
         result = self.safe_value(data, "result", [])
-        return self.parse_funding_histories(result, market)
+        return self.parse_funding_histories(result, market, since, limit)
 
     def parse_funding_history(self, funding_history, market=None):
         #     {
