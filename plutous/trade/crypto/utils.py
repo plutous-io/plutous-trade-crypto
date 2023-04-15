@@ -43,7 +43,7 @@ def paginate(
 
     def decorator(func: Coroutine) -> Coroutine:
         async def paginate_over_limit(**kwargs) -> list[dict[str, Any]]:
-            params = kwargs["params"]
+            params = kwargs.get("params", {})
             limit = kwargs.get("limit") or float("inf")
             limit_arg = min(limit, max_limit)
             kwargs["limit"] = limit_arg if limit_arg != float("inf") else None
@@ -53,7 +53,7 @@ def paginate(
             limit -= max_limit
             limit = limit if limit != np.nan else 0
 
-            while (records == max_limit) & (limit > 0):
+            while (len(records) == max_limit) & (limit > 0):
                 if id_arg in kwargs:
                     params[id_arg] = int(records[-1]["id"]) + 1
                 elif ("since" in kwargs) or (start_time_arg in params):
@@ -67,7 +67,7 @@ def paginate(
             return all_records
 
         async def paginate_over_interval(**kwargs) -> list[dict[str, Any]]:
-            params = kwargs["params"]
+            params = kwargs.get("params", {})
             since: int = kwargs.get("since") or params.get(start_time_arg)
             now = int(datetime.now(timezone.utc).timestamp() * 1000)
             end = params.get(end_time_arg, now)
@@ -111,7 +111,7 @@ def paginate(
 
             if id_arg in kwargs:
                 return await paginate_over_limit(**kwargs)
-            if ("since" in kwargs) or (start_time_arg in kwargs["params"]):
+            if (kwargs.get("since") is not None) or (start_time_arg in kwargs.get("params", {})):
                 return await paginate_over_interval(**kwargs)
             return await func(**kwargs)
 

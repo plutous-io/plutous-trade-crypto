@@ -322,6 +322,21 @@ class BinanceBase(binance):
 
         trades = await self.sapi_get_convert_tradeflow(params=query)
         return self.parse_convert_histories(trades)
+    
+    @paginate(max_limit=1000)
+    async def fetch_funding_rate_history(
+        self,
+        symbol=None,
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_funding_rate_history(
+            symbol,
+            since,
+            limit,
+            params,
+        )
 
     async def watch_funding_rate(self, symbol, params={}):
         await self.load_markets()
@@ -528,6 +543,17 @@ class Binance(BinanceBase):
 
 
 class BinanceUsdm(BinanceBase, binanceusdm):
+    @paginate(max_limit=1500)
+    async def fetch_ohlcv(
+        self,
+        symbol,
+        timeframe,
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
+    
     @paginate(
         max_limit=1000,
         max_interval=timedelta(days=7),
@@ -560,6 +586,17 @@ class BinanceUsdm(BinanceBase, binanceusdm):
 
 
 class BinanceCoinm(BinanceBase, binancecoinm):
+    @paginate(max_limit=1500)
+    async def fetch_ohlcv(
+        self,
+        symbol,
+        timeframe,
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
+    
     @paginate(max_limit=1000)
     async def fetch_my_trades(
         self,
