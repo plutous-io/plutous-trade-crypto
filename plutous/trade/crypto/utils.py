@@ -43,7 +43,7 @@ def paginate(
 
     def decorator(func: Coroutine) -> Coroutine:
         async def paginate_over_limit(**kwargs) -> list[dict[str, Any]]:
-            params = kwargs.get("params", {})
+            params: dict = kwargs["params"]
             limit = kwargs.get("limit") or float("inf")
             limit_arg = min(limit, max_limit)
             kwargs["limit"] = limit_arg if limit_arg != float("inf") else None
@@ -67,7 +67,7 @@ def paginate(
             return all_records
 
         async def paginate_over_interval(**kwargs) -> list[dict[str, Any]]:
-            params = kwargs.get("params", {})
+            params: dict = kwargs["params"]
             since: int = kwargs.get("since") or params.get(start_time_arg)
             now = int(datetime.now(timezone.utc).timestamp() * 1000)
             end = params.get(end_time_arg, now)
@@ -87,10 +87,12 @@ def paginate(
 
             coroutines = []
             for since in range(since, end, diff):
-                params = kwargs.copy()
-                kwargs["since"] = since
+                ckwargs = kwargs.copy()
+                params = params.copy()
+                ckwargs["since"] = since
                 params[end_time_arg] = min(since + diff - 1, end)
-                coroutines.append(paginate_over_limit(**kwargs))
+                ckwargs["params"] = params
+                coroutines.append(paginate_over_limit(**ckwargs))
 
             logger.info(
                 f"Calling {func.__name__} {kwargs} "
