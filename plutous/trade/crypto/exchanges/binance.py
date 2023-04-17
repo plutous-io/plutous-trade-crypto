@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from ccxt.base.errors import BadSymbol, NotSupported
+from ccxt.base.errors import BadSymbol, NotSupported, BadRequest
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
 from ..utils import paginate
@@ -322,7 +322,7 @@ class BinanceBase(binance):
 
         trades = await self.sapi_get_convert_tradeflow(params=query)
         return self.parse_convert_histories(trades)
-    
+
     @paginate(max_limit=1000)
     async def fetch_funding_rate_history(
         self,
@@ -515,6 +515,90 @@ class BinanceBase(binance):
             return method(client, message)
         return super(BinanceBase, self).handle_message(client, message)
 
+    async def fetch_long_short_ratio_history(
+        self, symbol, timeframe="5m", since=None, limit=None, params={}
+    ):
+        """
+        Retrieves the long short ratio history of a currency
+        :param str symbol: Unified CCXT market symbol
+        :param str timeframe: "5m","15m","30m","1h","2h","4h","6h","12h", or "1d"
+        :param int|None since: the time(ms) of the earliest record to retrieve as a unix timestamp
+        :param int|None limit: default 30, max 500
+        :param dict params: exchange specific parameters
+        :param int|None params['until']: the time(ms) of the latest record to retrieve as a unix timestamp
+        :returns dict: an array of `open interest history structure <https://docs.ccxt.com/en/latest/manual.html#interest-history-structure>`
+        """
+        if timeframe == "1m":
+            raise BadRequest(
+                self.id + "fetchLongShortRatioHistory cannot use the 1m timeframe"
+            )
+        await self.load_markets()
+        market = self.market(symbol)
+        request = {
+            "period": self.timeframes[timeframe],
+        }
+        if limit is not None:
+            request["limit"] = limit
+        symbolKey = "symbol" if market["linear"] else "pair"
+        request[symbolKey] = market["id"]
+        if market["inverse"]:
+            request["contractType"] = self.safe_string(
+                params, "contractType", "CURRENT_QUARTER"
+            )
+        if since is not None:
+            request["startTime"] = since
+        until = self.safe_integer_2(params, "until", "till")  # unified in milliseconds
+        endTime = self.safe_integer(
+            params, "endTime", until
+        )  # exchange-specific in milliseconds
+        params = self.omit(params, ["endTime", "until", "till"])
+        if endTime:
+            request["endTime"] = endTime
+        elif since:
+            if limit is None:
+                limit = 30  # Exchange default
+            duration = self.parse_timeframe(timeframe)
+            request["endTime"] = self.sum(since, duration * limit * 1000)
+        method = "fapiDataGetGlobalLongShortAccountRatio"
+        if market["inverse"]:
+            method = "dapiDataGetGlobalLongShortAccountRatio"
+        response = await getattr(self, method)(self.extend(request, params))
+        #
+        #  [
+        #      {
+        #          "symbol":"BTCUSDT",
+        #          "sumOpenInterest":"75375.61700000",
+        #          "sumOpenInterestValue":"3248828883.71251440",
+        #          "timestamp":1642179900000
+        #      },
+        #      ...
+        #  ]
+        #
+        return self.parse_long_short_ratios(response, symbol, since, limit)
+
+    def parse_long_short_ratio(self, ratio, market=None):
+        timestamp = self.safe_integer(ratio, "timestamp")
+        id = self.safe_string(ratio, "symbol")
+        market = self.safe_market(id, market)
+        long = self.safe_number(ratio, "longAccount")
+        short = self.safe_number(ratio, "shortAccount")
+        lr_ratio = self.safe_number(ratio, "longShortRatio")
+        return {
+            "symbol": self.safe_symbol(id),
+            "longAccount": long,
+            "shortAccount": short,
+            "longShortRatio": lr_ratio,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "info": ratio,
+        }
+
+    def parse_long_short_ratios(self, interests, symbol=None, since=None, limit=None):
+        result = []
+        for i in range(0, len(interests)):
+            result.append(self.parse_long_short_ratio(interests[i]))
+        return self.filter_by_symbol_since_limit(result, symbol, since, limit)
+
 
 class Binance(BinanceBase):
     @paginate(max_limit=1000)
@@ -553,7 +637,7 @@ class BinanceUsdm(BinanceBase, binanceusdm):
         params={},
     ):
         return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
-    
+
     @paginate(
         max_limit=1000,
         max_interval=timedelta(days=7),
@@ -584,6 +668,23 @@ class BinanceUsdm(BinanceBase, binanceusdm):
             params,
         )
 
+    @paginate(max_limit=500)
+    async def fetch_long_short_ratio_history(
+        self,
+        symbol,
+        timeframe="5m",
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_long_short_ratio_history(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
+
 
 class BinanceCoinm(BinanceBase, binancecoinm):
     @paginate(max_limit=1500)
@@ -596,7 +697,7 @@ class BinanceCoinm(BinanceBase, binancecoinm):
         params={},
     ):
         return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
-    
+
     @paginate(max_limit=1000)
     async def fetch_my_trades(
         self,
@@ -620,3 +721,20 @@ class BinanceCoinm(BinanceBase, binancecoinm):
         params={},
     ):
         return await super().fetch_incomes(symbol, since, limit, income_type, params)
+    
+    @paginate(max_limit=500)
+    async def fetch_long_short_ratio_history(
+        self,
+        symbol,
+        timeframe="5m",
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_long_short_ratio_history(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
