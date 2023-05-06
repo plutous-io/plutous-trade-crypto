@@ -18,6 +18,7 @@ python = ">=3.10"
 ccxt = ">=2.4.24"
 pandas = ">=1.5.2"
 numpy = "1.23.5" #issue with numba
+urllib3 = "1.26.15" #issue with HTTPResponse
 
 [tool.poetry.group.dev.dependencies]
 black = "22.12.0"
