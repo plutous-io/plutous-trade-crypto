@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "plutous-trade-crypto"
-version = "0.0.6"
+version = "0.0.7"
 description = "Plutous Crypto Trading Library"
 packages = [{include = "plutous"}]
 authors = ["Cheun Hong <cheunhong@plutous.io>"]
@@ -14,15 +14,10 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.10,<3.11"
 ccxt = ">=2.4.24"
 pandas = ">=1.5.2"
-numpy = "1.23.5" #issue with numba
-urllib3 = "1.26.15" #issue with HTTPResponse
-
-[tool.poetry.group.dev.dependencies]
-black = "22.12.0"
-notebook = ">=6.5.2"
+plutous = ">=0.0.1"
 
 [build-system]
 requires = ["poetry-core"]
