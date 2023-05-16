@@ -17,8 +17,8 @@ classifiers = [
 python = ">=3.10,<3.11"
 ccxt = ">=2.4.24"
 pandas = ">=1.5.2"
-plutous = ">=0.0.1"
-fastapi = ">=0.95.1"
+plutous-trade = ">=0.0.1"
+
 
 [build-system]
 requires = ["poetry-core"]

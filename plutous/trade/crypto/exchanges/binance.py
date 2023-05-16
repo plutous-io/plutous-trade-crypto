@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from ccxt.base.errors import BadSymbol, NotSupported, BadRequest
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
-from ..utils import paginate
+from plutous.trade.crypto.utils.paginate import paginate
 
 
 class BinanceBase(binance):
