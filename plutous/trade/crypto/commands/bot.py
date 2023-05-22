@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from plutous.trade.crypto import exchanges as ex
 from plutous.trade.crypto.enums import OrderType
 from plutous.trade.enums import Action, PositionSide, StrategyDirection
-from plutous.trade.models import Bot, Position, Strategy, Trade
+from plutous.trade.models import Bot, Position, Trade
 
 
 class WebhookBotCreateOrder(BaseModel):
