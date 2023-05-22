@@ -27,3 +27,8 @@ def upgrade(revision: str = "head"):
 @app.command()
 def downgrade(revision: str):
     db.downgrade(directory, revision)
+
+
+@app.command()
+def reset():
+    db.reset("crypto")
