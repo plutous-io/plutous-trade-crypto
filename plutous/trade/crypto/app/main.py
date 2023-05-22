@@ -1,11 +1,10 @@
 from fastapi import FastAPI, Depends
 
 from plutous.app.utils.session import Session, get_session
-from plutous.trade.models import Strategy
 
-from plutous.trade.crypto import exchanges as ex
+from plutous.trade.crypto.commands.bot import WebhookBotCreateOrder
 
-from .models import TradePost
+from .models import BotTradePost
 
 app = FastAPI(
     title="Plutous Crypto API",
@@ -17,13 +16,14 @@ def root():
     return {"message": "Hello World"}
 
 
-@app.post("/trade", response_model=TradePost)
-async def trade(
-    trade: TradePost,
+@app.post("/bot/{bot_id}/trade")
+async def create_trade(
+    bot_id: int,
+    trade: BotTradePost,
     session: Session = Depends(get_session),
 ):
-    strategy = session.query(Strategy).filter_by(id=trade.strategy_id).one()
-    exchange: ex.Exchange = getattr(ex, trade.exchange.value)
-    await exchange.create_order(trade)
-    return trade
-
+    await WebhookBotCreateOrder(
+        bot_id=bot_id,
+        symbol=trade.symbol,
+        action=trade.action,
+    ).execute(session)

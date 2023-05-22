@@ -1,15 +1,9 @@
 from pydantic import BaseModel
 
-from plutous.enums import Exchange
+from plutous.trade.enums import Action
 
 
-class TradePost(BaseModel):
-    strategy_id: int
+class BotTradePost(BaseModel):
     symbol: str
-    exchange: Exchange
-    action: str
-    order_type: str
+    action: Action
 
-
-class TradesPost(BaseModel):
-    trades: list[TradePost]

@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from plutous.trade.crypto import exchanges as ex
-from plutous.trade.crypto.enums import OrderType
 from plutous.trade.enums import Action, PositionSide, StrategyDirection
 from plutous.trade.models import Bot, Position, Trade
 
@@ -35,9 +34,10 @@ class WebhookBotCreateOrder(BaseModel):
             }
         )
         if position is not None:
-            if (position.side == PositionSide.LONG) & (self.action == Action.BUY):
-                return
-            if (position.side == PositionSide.SHORT) & (self.action == Action.SELL):
+            if ((position.side == PositionSide.LONG) & (self.action == Action.BUY)) | (
+                (position.side == PositionSide.SHORT) & (self.action == Action.SELL)
+            ):
+                await exchange.close()
                 return
 
             quantity = self.quantity or position.quantity
@@ -49,21 +49,24 @@ class WebhookBotCreateOrder(BaseModel):
                 amount=quantity,
                 params={"positionSide": position.side.value},
             )  # type: ignore
-            t: dict[str, Any] = await exchange.fetch_my_trades(
-                symbol=self.symbol,
-                params={"orderId": order["id"]},
-            )
+            t: dict[str, Any] = (
+                await exchange.fetch_my_trades(
+                    symbol=self.symbol,
+                    params={"orderId": order["id"]},
+                )
+            )[0]
             realized_pnl = float(t["info"]["realizedPnl"])
 
             trade = Trade(
-                bot_id=self.bot_id,
+                exchange=bot.exchange,
+                asset_type=bot.strategy.asset_type,
                 position_id=position.id,
+                side=position.side,
                 symbol=self.symbol,
                 action=self.action,
                 quantity=t["amount"],
                 price=t["price"],
                 identifier=t["id"],
-                order_type=OrderType.MARKET,
                 realized_pnl=realized_pnl,
                 datetime=t["datetime"],
             )
@@ -79,6 +82,7 @@ class WebhookBotCreateOrder(BaseModel):
             session.commit()
 
             if bot.strategy.direction != StrategyDirection.BOTH:
+                await exchange.close()
                 return
 
         side = PositionSide.LONG if self.action == Action.BUY else PositionSide.SHORT
@@ -89,31 +93,33 @@ class WebhookBotCreateOrder(BaseModel):
             type="market",
             side=self.action.value,
             amount=quantity,
-            params={"position_side": side.value},
+            params={"positionSide": side.value},
         )  # type: ignore
-        t: dict[str, Any] = await exchange.fetch_my_trades(
-            symbol=self.symbol,
-            params={"orderId": order["id"]},
-        )  # type: ignore
+        t: dict[str, Any] = (
+            await exchange.fetch_my_trades(
+                symbol=self.symbol,
+                params={"orderId": order["id"]},
+            )  # type: ignore
+        )[0]
 
         position = Position(
             bot_id=self.bot_id,
             asset_type=bot.strategy.asset_type,
-            exchaneg=bot.exchange,
+            exchange=bot.exchange,
             symbol=self.symbol,
             side=side,
             quantity=t["amount"],
             opened_at=t["datetime"],
             trades=[
                 Trade(
-                    bot_id=self.bot_id,
-                    position=position,
+                    exchange=bot.exchange,
+                    asset_type=bot.strategy.asset_type,
                     symbol=self.symbol,
                     action=self.action,
+                    side=side,
                     quantity=t["amount"],
                     price=t["price"],
                     identifier=t["id"],
-                    order_type=OrderType.MARKET,
                     realized_pnl=0,
                     datetime=t["datetime"],
                 )
@@ -122,3 +128,4 @@ class WebhookBotCreateOrder(BaseModel):
 
         session.add(position)
         session.commit()
+        await exchange.close()
