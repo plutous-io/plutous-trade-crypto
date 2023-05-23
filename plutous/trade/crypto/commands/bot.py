@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 from pydantic import BaseModel
@@ -48,6 +49,7 @@ class WebhookBotCreateOrder(BaseModel):
                 amount=quantity,
                 params={"positionSide": position.side.value},
             )  # type: ignore
+            await asyncio.sleep(1)
             t: dict[str, Any] = (
                 await exchange.fetch_my_trades(
                     symbol=self.symbol,
@@ -94,6 +96,7 @@ class WebhookBotCreateOrder(BaseModel):
             amount=quantity,
             params={"positionSide": side.value},
         )  # type: ignore
+        await asyncio.sleep(1)
         t: dict[str, Any] = (
             await exchange.fetch_my_trades(
                 symbol=self.symbol,
