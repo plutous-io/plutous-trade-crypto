@@ -8,6 +8,7 @@ from .base import BaseCollector
 
 class OpenInterestCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.OPEN_INTEREST
+    TABLE = OpenInterest
 
     async def fetch_data(self):
         active_symbols = await self.fetch_active_symbols()
@@ -19,10 +20,10 @@ class OpenInterestCollector(BaseCollector):
             OpenInterest(
                 symbol=open_interest["symbol"],
                 exchange=self._exchange,
-                timestamp=open_interest["timestamp"] // 60000 * 60000,
+                timestamp=open_interest["timestamp"] // 300000 * 300000,
                 open_interest=open_interest["openInterestAmount"],
                 datetime=self.exchange.iso8601(
-                    open_interest["timestamp"] // 60000 * 60000
+                    open_interest["timestamp"] // 300000 * 300000
                 ),
             )
             for open_interest in open_interests

@@ -8,6 +8,7 @@ from .base import BaseCollector
 
 class FundingRateCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.FUNDING_RATE
+    TABLE = FundingRate
 
     async def fetch_data(self):
         active_symbols = await self.fetch_active_symbols()
@@ -16,10 +17,10 @@ class FundingRateCollector(BaseCollector):
             FundingRate(
                 symbol=funding_rate["symbol"],
                 exchange=self._exchange,
-                timestamp=funding_rate["timestamp"] // 60000 * 60000,
+                timestamp=funding_rate["timestamp"] // 300000 * 300000,
                 funding_rate=funding_rate["fundingRate"],
                 datetime=self.exchange.iso8601(
-                    funding_rate["timestamp"] // 60000 * 60000
+                    funding_rate["timestamp"] // 300000 * 300000
                 ),
             )
             for funding_rate in funding_rates.values()

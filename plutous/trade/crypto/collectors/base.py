@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any, Type, Union
+
+from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert
 
 from plutous import database as db
 from plutous.enums import Exchange
@@ -17,6 +20,7 @@ ExchangeType = Union[BinanceUsdm, BinanceCoinm]
 
 class BaseCollector(ABC):
     COLLECTOR_TYPE: CollectorType
+    TABLE: Type[Base]
 
     def __init__(self, exchange: Exchange, **kwargs):
         self._exchange = exchange
@@ -25,7 +29,7 @@ class BaseCollector(ABC):
     async def collect(self):
         data = await self.fetch_data()
         with db.Session() as session:
-            session.add_all(data)
+            self._insert(data, session)
             session.commit()
         await self.exchange.close()
 
@@ -36,3 +40,18 @@ class BaseCollector(ABC):
     @abstractmethod
     async def fetch_data(self) -> list[Base]:
         pass
+
+    def _insert(self, data: list[Base], session: Session):
+        if not data:
+            return
+        stmt = insert(self.TABLE.__table__).values(
+            [d.dict() for d in data]
+        )
+        stmt = stmt.on_conflict_do_nothing(
+            index_elements=[
+                "exchange",
+                "symbol",
+                "timestamp",
+            ],
+        )
+        session.execute(stmt)

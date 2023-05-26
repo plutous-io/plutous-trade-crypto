@@ -8,6 +8,7 @@ from .base import BaseCollector
 
 class LongShortRatioCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.LONG_SHORT_RATIO
+    TABLE = LongShortRatio
 
     async def fetch_data(self):
         active_symbols = await self.fetch_active_symbols()
