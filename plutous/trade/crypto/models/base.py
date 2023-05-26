@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 
-from sqlalchemy import Index
+from sqlalchemy import BIGINT, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from plutous.enums import Exchange
@@ -15,7 +15,7 @@ class Enum(BaseEnum):
 class Base(DeclarativeBase, BaseMixin):
     exchange: Mapped[Exchange] = mapped_column(Enum(Exchange, schema="public"))
     symbol: Mapped[str]
-    timestamp: Mapped[int]
+    timestamp: Mapped[int] = mapped_column(BIGINT)
     datetime: Mapped[dt]
 
     @declared_attr.directive
