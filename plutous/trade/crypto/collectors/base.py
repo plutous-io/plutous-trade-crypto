@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Type, Union
 
-from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
 from plutous import database as db
 from plutous.enums import Exchange
@@ -44,9 +44,7 @@ class BaseCollector(ABC):
     def _insert(self, data: list[Base], session: Session):
         if not data:
             return
-        stmt = insert(self.TABLE.__table__).values(
-            [d.dict() for d in data]
-        )
+        stmt = insert(self.TABLE.__table__).values([d.dict() for d in data])
         stmt = stmt.on_conflict_do_nothing(
             index_elements=[
                 "exchange",
@@ -55,3 +53,11 @@ class BaseCollector(ABC):
             ],
         )
         session.execute(stmt)
+
+    def round_milliseconds(
+        self,
+        timestamp: int,
+        multipler: int = 300000,
+        offset: int = 0,
+    ) -> int:
+        return ((timestamp // multipler) + offset) * multipler

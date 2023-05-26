@@ -20,10 +20,12 @@ class OpenInterestCollector(BaseCollector):
             OpenInterest(
                 symbol=open_interest["symbol"],
                 exchange=self._exchange,
-                timestamp=open_interest["timestamp"] // 300000 * 300000,
+                timestamp=self.round_milliseconds(
+                    open_interest["timestamp"], offset=-1
+                ),
                 open_interest=open_interest["openInterestAmount"],
                 datetime=self.exchange.iso8601(
-                    open_interest["timestamp"] // 300000 * 300000
+                    self.round_milliseconds(open_interest["timestamp"], offset=-1)
                 ),
             )
             for open_interest in open_interests

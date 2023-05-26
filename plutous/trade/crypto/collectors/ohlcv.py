@@ -11,9 +11,17 @@ class OHLCVCollector(BaseCollector):
     TABLE = OHLCV
 
     async def fetch_data(self):
+        last_timestamp = self.round_milliseconds(
+            self.exchange.milliseconds(), offset=-1
+        )
         active_symbols = await self.fetch_active_symbols()
         coroutines = [
-            self.exchange.fetch_ohlcv(symbol, timeframe="5m", limit=1)
+            self.exchange.fetch_ohlcv(
+                symbol,
+                timeframe="5m",
+                limit=1,
+                params={"endTime": last_timestamp},
+            )
             for symbol in active_symbols
         ]
         ohlcvs = await asyncio.gather(*coroutines)

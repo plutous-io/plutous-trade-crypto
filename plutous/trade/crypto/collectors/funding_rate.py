@@ -17,10 +17,10 @@ class FundingRateCollector(BaseCollector):
             FundingRate(
                 symbol=funding_rate["symbol"],
                 exchange=self._exchange,
-                timestamp=funding_rate["timestamp"] // 300000 * 300000,
+                timestamp=self.round_milliseconds(funding_rate["timestamp"], offset=-1),
                 funding_rate=funding_rate["fundingRate"],
                 datetime=self.exchange.iso8601(
-                    funding_rate["timestamp"] // 300000 * 300000
+                    self.round_milliseconds(funding_rate["timestamp"], offset=-1)
                 ),
             )
             for funding_rate in funding_rates.values()
