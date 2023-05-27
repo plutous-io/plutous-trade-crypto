@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from plutous.trade.crypto.models import Base
 
@@ -64,9 +64,9 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
+        connection.execute(text("set search_path to crypto"))
+        connection.dialect.default_schema_name = "crypto"
 
         with context.begin_transaction():
             context.run_migrations()

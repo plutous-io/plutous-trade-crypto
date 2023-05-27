@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 
-from sqlalchemy import BIGINT, Index
+from sqlalchemy import BIGINT, Index, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from plutous.enums import Exchange
@@ -27,6 +27,10 @@ class Base(DeclarativeBase, BaseMixin):
                 "symbol",
                 "timestamp",
                 unique=True,
+            ),
+            Index(
+                f"ix_{cls.__tablename__}_time_of_minute",
+                text("EXTRACT(minute from datetime)"),
             ),
             *super().__table_args__,
             {"schema": "crypto"},
