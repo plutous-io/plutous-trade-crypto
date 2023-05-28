@@ -39,7 +39,7 @@ def upgrade() -> None:
     op.create_table('long_short_ratio',
     sa.Column('long_account', sa.DECIMAL(precision=5, scale=4), nullable=False),
     sa.Column('short_account', sa.DECIMAL(precision=5, scale=4), nullable=False),
-    sa.Column('long_short_ratio', sa.DECIMAL(precision=5, scale=4), nullable=False),
+    sa.Column('long_short_ratio', sa.DECIMAL(precision=6, scale=4), nullable=False),
     sa.Column('exchange', exchange_enum, nullable=False),
     sa.Column('symbol', sa.String(), nullable=False),
     sa.Column('timestamp', sa.BIGINT(), nullable=False),
