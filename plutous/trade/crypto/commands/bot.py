@@ -50,35 +50,34 @@ class WebhookBotCreateOrder(BaseModel):
                 params={"positionSide": position.side.value},
             )  # type: ignore
             await asyncio.sleep(1)
-            t: dict[str, Any] = (
-                await exchange.fetch_my_trades(
-                    symbol=self.symbol,
-                    params={"orderId": order["id"]},
-                )
-            )[0]
-            realized_pnl = float(t["info"]["realizedPnl"])
-
-            trade = Trade(
-                exchange=bot.exchange,
-                asset_type=bot.strategy.asset_type,
-                position_id=position.id,
-                side=position.side,
+            trades: list[dict[str, Any]] = await exchange.fetch_my_trades(
                 symbol=self.symbol,
-                action=self.action,
-                quantity=t["amount"],
-                price=t["price"],
-                identifier=t["id"],
-                realized_pnl=realized_pnl,
-                datetime=t["datetime"],
-            )
-            session.add(trade)
+                params={"orderId": order["id"]},
+            )  # type: ignore
 
-            position.quantity -= quantity
-            if position.quantity == 0:
-                position.closed_at = trade.datetime
+            for t in trades:
+                realized_pnl = float(t["info"]["realizedPnl"])
+                trade = Trade(
+                    exchange=bot.exchange,
+                    asset_type=bot.strategy.asset_type,
+                    position_id=position.id,
+                    side=position.side,
+                    symbol=self.symbol,
+                    action=self.action,
+                    quantity=t["amount"],
+                    price=t["price"],
+                    identifier=t["id"],
+                    realized_pnl=realized_pnl,
+                    datetime=t["datetime"],
+                )
+                session.add(trade)
 
-            if bot.accumulate:
-                bot.allocated_capital += realized_pnl
+                position.quantity -= quantity
+                if position.quantity == 0:
+                    position.closed_at = trade.datetime
+
+                if bot.accumulate:
+                    bot.allocated_capital += realized_pnl
 
             session.commit()
 
@@ -97,12 +96,10 @@ class WebhookBotCreateOrder(BaseModel):
             params={"positionSide": side.value},
         )  # type: ignore
         await asyncio.sleep(1)
-        t: dict[str, Any] = (
-            await exchange.fetch_my_trades(
-                symbol=self.symbol,
-                params={"orderId": order["id"]},
-            )  # type: ignore
-        )[0]
+        trades: list[dict[str, Any]] = await exchange.fetch_my_trades(
+            symbol=self.symbol,
+            params={"orderId": order["id"]},
+        )  # type: ignore
 
         position = Position(
             bot_id=self.bot_id,
@@ -110,8 +107,8 @@ class WebhookBotCreateOrder(BaseModel):
             exchange=bot.exchange,
             symbol=self.symbol,
             side=side,
-            quantity=t["amount"],
-            opened_at=t["datetime"],
+            quantity=sum([t["amount"] for t in trades]),
+            opened_at=trades[0]["datetime"],
             trades=[
                 Trade(
                     exchange=bot.exchange,
@@ -125,6 +122,7 @@ class WebhookBotCreateOrder(BaseModel):
                     realized_pnl=0,
                     datetime=t["datetime"],
                 )
+                for t in trades
             ],
         )
 
