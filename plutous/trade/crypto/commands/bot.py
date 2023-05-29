@@ -100,6 +100,8 @@ class WebhookBotCreateOrder(BaseModel):
             symbol=self.symbol,
             params={"orderId": order["id"]},
         )  # type: ignore
+        amount = sum([t["amount"] for t in trades])
+        price = sum([t["amount"] * t["price"] for t in trades]) / amount
 
         position = Position(
             bot_id=self.bot_id,
@@ -107,8 +109,10 @@ class WebhookBotCreateOrder(BaseModel):
             exchange=bot.exchange,
             symbol=self.symbol,
             side=side,
-            quantity=sum([t["amount"] for t in trades]),
+            price=price,
+            quantity=amount,
             opened_at=trades[0]["datetime"],
+            realized_pnl=0,
             trades=[
                 Trade(
                     exchange=bot.exchange,
