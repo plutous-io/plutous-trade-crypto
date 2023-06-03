@@ -33,7 +33,8 @@ def upgrade() -> None:
     schema='crypto'
     )
     op.create_index('ix_funding_rate_created_at', 'funding_rate', ['created_at'], unique=False, schema='crypto')
-    op.create_index('ix_funding_rate_timestamp_exchange_symbol', 'funding_rate', ['timestamp' ,'exchange', 'symbol'], unique=True, schema='crypto')
+    op.create_index('ix_funding_rate_exchange_symbol_timestamp', 'funding_rate', ['exchange', 'symbol', 'timestamp'], unique=True, schema='crypto')
+    op.create_index('ix_funding_rate_timestamp', 'funding_rate', ['timestamp'], unique=False, schema='crypto')
     op.create_index('ix_funding_rate_time_of_minute', 'funding_rate', [sa.text('EXTRACT(minute from datetime)')], unique=False, schema='crypto')
     op.create_index('ix_funding_rate_updated_at', 'funding_rate', ['updated_at'], unique=False, schema='crypto')
     op.create_table('long_short_ratio',
@@ -51,7 +52,8 @@ def upgrade() -> None:
     schema='crypto'
     )
     op.create_index('ix_long_short_ratio_created_at', 'long_short_ratio', ['created_at'], unique=False, schema='crypto')
-    op.create_index('ix_long_short_ratio_timestamp_exchange_symbol', 'long_short_ratio', ['timestamp' ,'exchange', 'symbol'], unique=True, schema='crypto')
+    op.create_index('ix_long_short_ratio_exchange_symbol_timestamp', 'long_short_ratio', ['exchange', 'symbol', 'timestamp'], unique=True, schema='crypto')
+    op.create_index('ix_long_short_ratio_timestamp', 'long_short_ratio', ['timestamp'], unique=False, schema='crypto')
     op.create_index('ix_long_short_ratio_time_of_minute', 'long_short_ratio', [sa.text('EXTRACT(minute from datetime)')], unique=False, schema='crypto')
     op.create_index('ix_long_short_ratio_updated_at', 'long_short_ratio', ['updated_at'], unique=False, schema='crypto')
     op.create_table('ohlcv',
@@ -71,7 +73,8 @@ def upgrade() -> None:
     schema='crypto'
     )
     op.create_index('ix_ohlcv_created_at', 'ohlcv', ['created_at'], unique=False, schema='crypto')
-    op.create_index('ix_ohlcv_timestamp_exchange_symbol', 'ohlcv', ['timestamp' ,'exchange', 'symbol'], unique=True, schema='crypto')
+    op.create_index('ix_ohlcv_exchange_symbol_timestamp', 'ohlcv', ['exchange', 'symbol', 'timestamp'], unique=True, schema='crypto')
+    op.create_index('ix_ohlcv_timestamp', 'ohlcv', ['timestamp'], unique=False, schema='crypto')
     op.create_index('ix_ohlcv_time_of_minute', 'ohlcv', [sa.text('EXTRACT(minute from datetime)')], unique=False, schema='crypto')
     op.create_index('ix_ohlcv_updated_at', 'ohlcv', ['updated_at'], unique=False, schema='crypto')
     op.create_table('open_interest',
@@ -87,7 +90,8 @@ def upgrade() -> None:
     schema='crypto'
     )
     op.create_index('ix_open_interest_created_at', 'open_interest', ['created_at'], unique=False, schema='crypto')
-    op.create_index('ix_open_interest_timestamp_exchange_symbol', 'open_interest', ['timestamp' ,'exchange', 'symbol'], unique=True, schema='crypto')
+    op.create_index('ix_open_interest_exchange_symbol_timestamp', 'open_interest', ['exchange', 'symbol', 'timestamp'], unique=True, schema='crypto')
+    op.create_index('ix_open_interest_timestamp', 'open_interest', ['timestamp'], unique=False, schema='crypto')
     op.create_index('ix_open_interest_time_of_minute', 'open_interest', [sa.text('EXTRACT(minute from datetime)')], unique=False, schema='crypto')
     op.create_index('ix_open_interest_updated_at', 'open_interest', ['updated_at'], unique=False, schema='crypto')
     # ### end Alembic commands ###

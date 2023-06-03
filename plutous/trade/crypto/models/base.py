@@ -22,11 +22,15 @@ class Base(DeclarativeBase, BaseMixin):
     def __table_args__(cls) -> tuple:
         return (
             Index(
-                f"ix_{cls.__tablename__}_timestamp_exchange_symbol",
-                "timestamp",
+                f"ix_{cls.__tablename__}_exchange_symbol_timestamp",
                 "exchange",
                 "symbol",
+                "timestamp",
                 unique=True,
+            ),
+            Index(
+                f"ix_{cls.__tablename__}_timestamp",
+                "timestamp",
             ),
             Index(
                 f"ix_{cls.__tablename__}_time_of_minute",
