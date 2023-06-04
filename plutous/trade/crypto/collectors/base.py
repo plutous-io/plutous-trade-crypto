@@ -24,7 +24,7 @@ class BaseCollector(ABC):
 
     def __init__(self, exchange: Exchange, **kwargs):
         self._exchange = exchange
-        self.exchange: ExchangeType = EXCHANGE_CLS[exchange](**kwargs)
+        self.exchange: ExchangeType = EXCHANGE_CLS[exchange](kwargs)
 
     async def collect(self):
         data = await self.fetch_data()
