@@ -1,8 +1,7 @@
 import asyncio
 
-from typer import Context, Typer
+from typer import Typer
 
-from plutous.cli.utils import parse_context_args
 from plutous.enums import Exchange
 from plutous.trade.crypto.collectors import COLLECTORS
 from plutous.trade.crypto.enums import CollectorType
@@ -16,17 +15,11 @@ for a in apps:
     app.add_typer(a)
 
 
-@app.command(
-    context_settings={
-        "allow_extra_args": True,
-        "ignore_unknown_options": True,
-    }
-)
+@app.command()
 def collect(
     exchange: Exchange,
     collector_type: CollectorType,
-    ctx: Context,
 ):
     """Collect data from exchange."""
-    collector = COLLECTORS[collector_type](exchange, **parse_context_args(ctx))
+    collector = COLLECTORS[collector_type](exchange)
     asyncio.run(collector.collect())
