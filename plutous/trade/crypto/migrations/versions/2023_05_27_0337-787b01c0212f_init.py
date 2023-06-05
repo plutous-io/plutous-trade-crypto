@@ -37,6 +37,23 @@ def upgrade() -> None:
     op.create_index('ix_funding_rate_timestamp', 'funding_rate', ['timestamp'], unique=False, schema='crypto')
     op.create_index('ix_funding_rate_time_of_minute', 'funding_rate', [sa.text('EXTRACT(minute from datetime)')], unique=False, schema='crypto')
     op.create_index('ix_funding_rate_updated_at', 'funding_rate', ['updated_at'], unique=False, schema='crypto')
+    op.create_table('funding_settlement',
+    sa.Column('funding_rate', sa.DECIMAL(precision=7, scale=6), nullable=False),
+    sa.Column('exchange', exchange_enum, nullable=False),
+    sa.Column('symbol', sa.String(), nullable=False),
+    sa.Column('timestamp', sa.BIGINT(), nullable=False),
+    sa.Column('datetime', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.TIMESTAMP(), nullable=False),
+    sa.Column('updated_at', sa.TIMESTAMP(), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    schema='crypto'
+    )
+    op.create_index('ix_funding_settlement_created_at', 'funding_settlement', ['created_at'], unique=False, schema='crypto')
+    op.create_index('ix_funding_settlement_exchange_symbol_timestamp', 'funding_settlement', ['exchange', 'symbol', 'timestamp'], unique=True, schema='crypto')
+    op.create_index('ix_funding_settlement_timestamp', 'funding_settlement', ['timestamp'], unique=False, schema='crypto')
+    op.create_index('ix_funding_settlement_time_of_minute', 'funding_settlement', [sa.text('EXTRACT(minute from datetime)')], unique=False, schema='crypto')
+    op.create_index('ix_funding_settlement_updated_at', 'funding_settlement', ['updated_at'], unique=False, schema='crypto')
     op.create_table('long_short_ratio',
     sa.Column('long_account', sa.DECIMAL(precision=5, scale=4), nullable=False),
     sa.Column('short_account', sa.DECIMAL(precision=5, scale=4), nullable=False),
@@ -114,6 +131,11 @@ def downgrade() -> None:
     op.drop_index('ix_long_short_ratio_timestamp_exchange_symbol', table_name='long_short_ratio', schema='crypto')
     op.drop_index('ix_long_short_ratio_created_at', table_name='long_short_ratio', schema='crypto')
     op.drop_table('long_short_ratio', schema='crypto')
+    op.drop_index('ix_funding_settlement_updated_at', table_name='funding_settlement', schema='crypto')
+    op.drop_index('ix_funding_settlement_time_of_minute', table_name='funding_settlement', schema='crypto')
+    op.drop_index('ix_funding_settlement_timestamp_exchange_symbol', table_name='funding_settlement', schema='crypto')
+    op.drop_index('ix_funding_settlement_created_at', table_name='funding_settlement', schema='crypto')
+    op.drop_table('funding_settlement', schema='crypto')
     op.drop_index('ix_funding_rate_updated_at', table_name='funding_rate', schema='crypto')
     op.drop_index('ix_funding_rate_time_of_minute', table_name='funding_rate', schema='crypto')
     op.drop_index('ix_funding_rate_timestamp_exchange_symbol', table_name='funding_rate', schema='crypto')

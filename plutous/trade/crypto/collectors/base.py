@@ -41,9 +41,16 @@ class BaseCollector(ABC):
     async def fetch_data(self) -> list[Base]:
         pass
 
-    def _insert(self, data: list[Base], session: Session):
+    def _insert(
+        self,
+        data: list[Base],
+        session: Session,
+        table: Type[Base] | None = None,
+    ):
         if not data:
             return
+        if not table:
+            table = self.TABLE
         stmt = insert(self.TABLE.__table__).values([d.dict() for d in data])
         stmt = stmt.on_conflict_do_nothing(
             index_elements=[
