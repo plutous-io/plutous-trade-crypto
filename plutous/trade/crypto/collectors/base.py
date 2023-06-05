@@ -49,9 +49,9 @@ class BaseCollector(ABC):
     ):
         if not data:
             return
-        if not table:
+        if table is None:
             table = self.TABLE
-        stmt = insert(self.TABLE.__table__).values([d.dict() for d in data])
+        stmt = insert(table).values([d.dict() for d in data])
         stmt = stmt.on_conflict_do_nothing(
             index_elements=[
                 "exchange",
