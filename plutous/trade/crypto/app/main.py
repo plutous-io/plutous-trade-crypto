@@ -1,9 +1,7 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 
-from plutous.app.utils.session import get_session
-from plutous.trade.crypto.commands.bot import WebhookBotCreateOrder
+from plutous.trade.crypto.bots import WebhookBot, WebhookBotConfig
 
 from .models import BotTradePost
 
@@ -27,13 +25,11 @@ def root():
 
 
 @app.post("/bot/{bot_id}/trade")
-async def create_trade(
-    bot_id: int,
-    trade: BotTradePost,
-    session: Session = Depends(get_session),
-):
-    await WebhookBotCreateOrder(
+async def create_trade(bot_id: int, trade: BotTradePost):
+    config = WebhookBotConfig(
         bot_id=bot_id,
         symbol=trade.symbol,
         action=trade.action,
-    ).execute(session)
+        quantity=trade.quantity,
+    )
+    await WebhookBot(config=config)._run()
