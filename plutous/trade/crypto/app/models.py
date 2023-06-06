@@ -8,3 +8,6 @@ class BotTradePost(BaseModel):
     action: Action
     quantity: float | None = None
 
+
+class BotClosePost(BaseModel):
+    symbol: str

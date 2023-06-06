@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from plutous.trade.crypto.bots import WebhookBot, WebhookBotConfig
 
-from .models import BotTradePost
+from .models import BotClosePost, BotTradePost
 
 app = FastAPI(
     title="Plutous Crypto API",
@@ -29,7 +29,17 @@ async def create_trade(bot_id: int, trade: BotTradePost):
     config = WebhookBotConfig(
         bot_id=bot_id,
         symbol=trade.symbol,
+    )
+    await WebhookBot(config=config)._run(
         action=trade.action,
         quantity=trade.quantity,
     )
-    await WebhookBot(config=config)._run()
+
+
+@app.post("/bot/{bot_id}/close")
+async def close_trade(bot_id: int, trade: BotClosePost):
+    config = WebhookBotConfig(
+        bot_id=bot_id,
+        symbol=trade.symbol,
+    )
+    await WebhookBot(config=config).close_position()

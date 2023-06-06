@@ -45,12 +45,12 @@ class BaseBot(ABC):
             dict(apiKey=bot.api_key.key, secret=bot.api_key.secret)
         )
 
-    def run(self):
-        asyncio.run(self._run())
+    def run(self, **kwargs):
+        asyncio.run(self._run(**kwargs))
         self.session.close()
 
     @abstractmethod
-    async def _run(self):
+    async def _run(self, **kwargs):
         pass
 
     def send_discord_message(self, message: str):
