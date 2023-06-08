@@ -143,7 +143,7 @@ class BaseBot(ABC):
         if position is None:
             return
         action = Action.SELL if position.side == PositionSide.LONG else Action.BUY
-        quantity = quantity or position.quantity
+        quantity = min(quantity or position.quantity, position.quantity)
 
         if not self.config.dry_run:
             trades = await self.create_limit_chasing_order(
@@ -235,7 +235,7 @@ class BaseBot(ABC):
                 price=price,
                 params=params,
             )
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             try:
                 await self.exchange.cancel_order(order["id"], symbol)
             except OrderNotFound:
