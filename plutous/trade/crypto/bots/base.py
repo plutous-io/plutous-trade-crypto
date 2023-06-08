@@ -68,7 +68,7 @@ class BaseBot(ABC):
         price = ticker["last"]
 
         if not self.config.dry_run:
-            trades = await self.create_limit_chasing_order(
+            trades = await self.create_market_order(
                 symbol=symbol,
                 side=action.value,
                 amount=quantity,
@@ -98,11 +98,11 @@ class BaseBot(ABC):
                 price=price,
                 quantity=quantity,
                 realized_pnl=0,
-                opened_at=trades[0]["datetime"],       
+                opened_at=trades[0]["datetime"],
             )
             self.positions[symbol] = position
 
-        trades=[
+        trades = [
             Trade(
                 exchange=self.bot.exchange,
                 asset_type=self.bot.strategy.asset_type,
@@ -146,7 +146,7 @@ class BaseBot(ABC):
         quantity = min(quantity or position.quantity, position.quantity)
 
         if not self.config.dry_run:
-            trades = await self.create_limit_chasing_order(
+            trades = await self.create_market_order(
                 symbol=symbol,
                 side=action.value,
                 amount=quantity,
@@ -208,6 +208,28 @@ class BaseBot(ABC):
             `realized_pnl(%): {realized_pnl / (self.bot.allocated_capital / self.bot.max_position) * 100}%`
             """
         )
+
+    async def create_market_order(
+        self,
+        symbol: str,
+        side: str,
+        amount: float,
+        params: dict[str, Any] = {},
+    ) -> list[dict[str, Any]]:
+        amount = float(self.exchange.amount_to_precision(symbol, amount))
+        order = await self.exchange.create_order(
+            symbol=symbol,
+            type="market",
+            side=side,
+            amount=amount,
+            params=params,
+        )
+        await asyncio.sleep(0.5)
+        trades = await self.exchange.fetch_my_trades(
+            symbol=symbol,
+            params={"orderId": order["id"]},
+        )
+        return trades
 
     async def create_limit_chasing_order(
         self,
