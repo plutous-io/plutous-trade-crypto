@@ -1,4 +1,4 @@
-from plutous.trade.enums import Action, PositionSide, StrategyDirection
+from plutous.trade.enums import Action, PositionSide
 
 from .base import BaseBot, BaseBotConfig
 
@@ -13,45 +13,40 @@ class WebhookBot(BaseBot):
     async def _run(
         self,
         action: Action,
+        quantity: float,
+        prev_position_side: PositionSide,
+        prev_position_size: float,
+    ):
+        await self.exchange.load_markets()
+        if ((prev_position_side == PositionSide.LONG) & (action == Action.SELL)) | (
+            (prev_position_side == PositionSide.SHORT) & (action == Action.BUY)
+        ):
+            close_quantity = min(quantity, prev_position_size)
+            quantity -= close_quantity
+            await super().close_position(
+                symbol=self.config.symbol,
+                side=prev_position_side,
+                quantity=close_quantity,
+            )
+
+        if quantity > 0:
+            await self.open_position(
+                symbol=self.config.symbol,
+                side=PositionSide.LONG if action == Action.BUY else PositionSide.SHORT,
+                quantity=quantity,
+            )
+        await self.exchange.close()
+
+    async def close_position(
+        self,
+        side: PositionSide,
         quantity: float | None = None,
     ):
         await self.exchange.load_markets()
         if self.config.symbol in self.positions:
-            position = self.positions[self.config.symbol]
-            if (
-                (position.side == PositionSide.LONG)
-                & (action == Action.BUY)
-            ) | (
-                (position.side == PositionSide.SHORT)
-                & (action == Action.SELL)
-            ):
-                await self.exchange.close()
-                return
-
             await super().close_position(
                 symbol=self.config.symbol,
-                quantity=quantity,
-            )
-
-            if self.bot.strategy.direction != StrategyDirection.BOTH:
-                await self.exchange.close()
-                return
-
-        await self.open_position(
-            symbol=self.config.symbol,
-            side=PositionSide.LONG
-            if action == Action.BUY
-            else PositionSide.SHORT,
-            quantity=quantity,
-        )
-        await self.exchange.close()
-
-    async def close_position(self, quantity: float | None = None):
-        await self.exchange.load_markets()
-        if self.config.symbol in self.positions:
-            await super().close_position(
-                symbol=self.config.symbol,
+                side=side,
                 quantity=quantity,
             )
             await self.exchange.close()
-            

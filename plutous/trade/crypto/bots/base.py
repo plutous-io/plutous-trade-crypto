@@ -40,7 +40,7 @@ class BaseBot(ABC):
             )
             .all()
         )
-        self.positions = {p.symbol: p for p in positions}
+        self.positions = {(p.symbol, p.side): p for p in positions}
         self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(
             dict(apiKey=bot.api_key.key, secret=bot.api_key.secret)
         )
@@ -61,14 +61,11 @@ class BaseBot(ABC):
         self,
         symbol: str,
         side: PositionSide,
-        quantity: float | None = None,
+        quantity: float,
     ):
         action = Action.BUY if side == PositionSide.LONG else Action.SELL
         ticker = await self.exchange.fetch_ticker(symbol)
         price = ticker["last"]
-        quantity = quantity or (
-            self.bot.allocated_capital / self.bot.max_position / price
-        )
 
         if not self.config.dry_run:
             trades = await self.create_limit_chasing_order(
@@ -89,34 +86,40 @@ class BaseBot(ABC):
         quantity = sum([t["amount"] for t in trades])
         price = sum([t["amount"] * t["price"] for t in trades]) / quantity
 
-        position = Position(
-            bot_id=self.bot.id,
-            asset_type=self.bot.strategy.asset_type,
-            exchange=self.bot.exchange,
-            symbol=symbol,
-            side=side,
-            price=price,
-            quantity=quantity,
-            realized_pnl=0,
-            opened_at=trades[0]["datetime"],
-            trades=[
-                Trade(
-                    exchange=self.bot.exchange,
-                    asset_type=self.bot.strategy.asset_type,
-                    symbol=symbol,
-                    action=action,
-                    side=side,
-                    quantity=t["amount"],
-                    price=t["price"],
-                    identifier=t["id"],
-                    realized_pnl=0,
-                    datetime=t["datetime"],
-                )
-                for t in trades
-            ],
-        )
-        self.positions[symbol] = position
-        self.session.add(position)
+        side = PositionSide.LONG if action == Action.BUY else PositionSide.SHORT
+        position = self.positions.get((symbol, side))
+        if position is None:
+            position = Position(
+                bot_id=self.bot.id,
+                asset_type=self.bot.strategy.asset_type,
+                exchange=self.bot.exchange,
+                symbol=symbol,
+                side=side,
+                price=price,
+                quantity=quantity,
+                realized_pnl=0,
+                opened_at=trades[0]["datetime"],       
+            )
+            self.positions[symbol] = position
+
+        trades=[
+            Trade(
+                exchange=self.bot.exchange,
+                asset_type=self.bot.strategy.asset_type,
+                symbol=symbol,
+                action=action,
+                side=side,
+                quantity=t["amount"],
+                price=t["price"],
+                identifier=t["id"],
+                realized_pnl=0,
+                datetime=t["datetime"],
+                position=position,
+            )
+            for t in trades
+        ]
+
+        self.session.add_all(trades)
         self.session.commit()
 
         circle = ":red_circle:" if side == PositionSide.SHORT else ":green_circle:"
@@ -133,9 +136,12 @@ class BaseBot(ABC):
     async def close_position(
         self,
         symbol: str,
+        side: PositionSide,
         quantity: float | None = None,
     ):
-        position = self.positions[symbol]
+        position = self.positions.get((symbol, side))
+        if position is None:
+            return
         action = Action.SELL if position.side == PositionSide.LONG else Action.BUY
         quantity = quantity or position.quantity
 
@@ -187,7 +193,7 @@ class BaseBot(ABC):
             if self.bot.accumulate:
                 self.bot.allocated_capital += realized_pnl
 
-            self.session.commit()
+        self.session.commit()
 
         price = sum([t["amount"] * t["price"] for t in trades]) / quantity
         realized_pnl = sum([float(t["info"]["realizedPnl"]) for t in trades])

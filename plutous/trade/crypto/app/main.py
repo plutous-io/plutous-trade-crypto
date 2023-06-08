@@ -33,6 +33,8 @@ async def create_trade(bot_id: int, trade: BotTradePost):
     await WebhookBot(config=config)._run(
         action=trade.action,
         quantity=trade.quantity,
+        prev_position_side=trade.prev_position_side,
+        prev_position_size=trade.prev_position_size,
     )
 
 
@@ -42,4 +44,7 @@ async def close_trade(bot_id: int, trade: BotClosePost):
         bot_id=bot_id,
         symbol=trade.symbol,
     )
-    await WebhookBot(config=config).close_position()
+    await WebhookBot(config=config).close_position(
+        side=trade.side,
+        quantity=trade.quantity,
+    )
