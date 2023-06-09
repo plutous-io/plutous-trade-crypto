@@ -167,6 +167,7 @@ class BaseBot(ABC):
                     "info": {"realizedPnl": realized_pnl},
                 }
             ]
+
         for t in trades:
             realized_pnl = float(t["info"]["realizedPnl"])
             trade = Trade(
@@ -184,7 +185,7 @@ class BaseBot(ABC):
             )
             self.session.add(trade)
 
-            position.quantity -= quantity
+            position.quantity -= t["amount"]
             position.realized_pnl += realized_pnl
 
             if position.quantity == 0:
@@ -195,6 +196,7 @@ class BaseBot(ABC):
 
         self.session.commit()
 
+        quantity = sum([t["amount"] for t in trades])
         price = sum([t["amount"] * t["price"] for t in trades]) / quantity
         realized_pnl = sum([float(t["info"]["realizedPnl"]) for t in trades])
         icon = ":white_check_mark:" if realized_pnl > 0 else ":x:"
@@ -205,7 +207,6 @@ class BaseBot(ABC):
             `price: {price}`
             `quantity: {quantity}`
             `realized_pnl: {realized_pnl}`
-            `realized_pnl(%): {realized_pnl / (self.bot.allocated_capital / self.bot.max_position) * 100}%`
             """
         )
 

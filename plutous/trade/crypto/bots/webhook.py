@@ -21,8 +21,11 @@ class WebhookBot(BaseBot):
         if ((prev_position_side == PositionSide.LONG) & (action == Action.SELL)) | (
             (prev_position_side == PositionSide.SHORT) & (action == Action.BUY)
         ):
-            close_quantity = min(quantity, prev_position_size)
-            quantity -= close_quantity
+            close_quantity = quantity
+            if quantity >= prev_position_size:
+                close_quantity = None
+                quantity -= prev_position_size
+            
             await super().close_position(
                 symbol=self.config.symbol,
                 side=prev_position_side,
