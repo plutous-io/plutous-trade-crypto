@@ -169,7 +169,9 @@ class BaseBot(ABC):
             ]
 
         for t in trades:
-            realized_pnl = float(t["info"]["realizedPnl"])
+            realized_pnl =(t["price"] - position.price) * t["amount"] * (
+                1 if position.side == PositionSide.LONG else -1
+            )
             trade = Trade(
                 exchange=self.bot.exchange,
                 asset_type=self.bot.strategy.asset_type,
