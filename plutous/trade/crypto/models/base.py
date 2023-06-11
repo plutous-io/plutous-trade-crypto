@@ -44,7 +44,7 @@ class Base(DeclarativeBase, BaseMixin):
     @classmethod
     def query(
         cls,
-        exchange_type: Exchange,
+        exchange: Exchange,
         symbols: list[str],
         since: int,
         frequency: str,
@@ -60,7 +60,7 @@ class Base(DeclarativeBase, BaseMixin):
             )
             .where(
                 cls.timestamp > since,
-                cls.exchange == exchange_type,
+                cls.exchange == exchange,
             )
             .order_by(cls.timestamp.asc())
         )
@@ -80,4 +80,8 @@ class Base(DeclarativeBase, BaseMixin):
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
 
-        return pd.read_sql(sql, conn)
+        return pd.read_sql(sql, conn).pivot(
+            index="datetime",
+            columns="symbol",
+            values=cls.__main_column__,
+        )

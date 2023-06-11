@@ -21,7 +21,7 @@ class OHLCV(Base):
     @classmethod
     def query(
         cls,
-        exchange_type: Exchange,
+        exchange: Exchange,
         symbols: list[str],
         since: int,
         frequency: str,
@@ -57,10 +57,18 @@ class OHLCV(Base):
             .distinct(dt.label("datetime"), cls.symbol)
             .where(
                 cls.timestamp > since,
-                cls.exchange == exchange_type,
+                cls.exchange == exchange,
             )
         )
         if len(symbols):
             sql = sql.where(cls.symbol.in_(symbols))
 
-        return pd.read_sql(sql, conn)
+        df = pd.read_sql(sql, conn).pivot(
+            index="datetime",
+            columns="symbol",
+            values=["open", "high", "low", "close", "volume"],
+        )
+
+        df.columns = df.columns.swaplevel(0, 1)
+
+        return df
