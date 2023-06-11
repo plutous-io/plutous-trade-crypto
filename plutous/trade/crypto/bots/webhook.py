@@ -47,10 +47,10 @@ class WebhookBot(BaseBot):
         quantity: float | None = None,
     ):
         await self.exchange.load_markets()
-        if self.config.symbol in self.positions:
+        if (self.config.symbol, side) in self.positions:
             await super().close_position(
                 symbol=self.config.symbol,
                 side=side,
                 quantity=quantity,
             )
-            await self.exchange.close()
+        await self.exchange.close()
