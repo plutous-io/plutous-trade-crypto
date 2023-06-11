@@ -39,3 +39,36 @@ class LongShortRatioCollector(BaseCollector):
             )
             for symbol, long_short_ratio in list(zip(active_symbols, long_short_ratios))
         ]
+
+    async def backfill_data(self, start_time: int, end_time: int | None = None):
+        params = {}
+        if end_time:
+            params["endTime"] = end_time
+
+        active_symbols = await self.fetch_active_symbols()
+        coroutines = [
+            self.exchange.fetch_long_short_ratio_history(
+                symbol,
+                timeframe="5m",
+                since=self.round_milliseconds(start_time),
+                params={},
+            )
+            for symbol in active_symbols
+        ]
+        long_short_ratios = await asyncio.gather(*coroutines)
+
+        data: list[LongShortRatio] = []
+        for symbol, long_short_ratios in list(zip(active_symbols, long_short_ratios)):
+            for long_short_ratio in long_short_ratios:
+                data.append(
+                    LongShortRatio(
+                        symbol=symbol,
+                        exchange=self._exchange,
+                        timestamp=long_short_ratio["timestamp"],
+                        long_short_ratio=long_short_ratio["longShortRatio"],
+                        long_account=long_short_ratio["longAccount"],
+                        short_account=long_short_ratio["shortAccount"],
+                        datetime=long_short_ratio["datetime"],
+                    )
+                )
+        return data

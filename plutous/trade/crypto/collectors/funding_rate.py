@@ -52,3 +52,7 @@ class FundingRateCollector(BaseCollector):
             )
         ]
         return fr, fs
+
+    async def backfill_data(self, start_time: int, end_time: int | None = None):
+        data: list[FundingRate] = []
+        return data

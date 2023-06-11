@@ -40,3 +40,38 @@ class OHLCVCollector(BaseCollector):
             )
             for symbol, ohlcv in list(zip(active_symbols, ohlcvs))
         ]
+
+    async def backfill_data(self, start_time: int, end_time: int | None = None):
+        params = {}
+        if end_time:
+            params["endTime"] = end_time
+
+        active_symbols = await self.fetch_active_symbols()
+        coroutines = [
+            self.exchange.fetch_ohlcv(
+                symbol,
+                timeframe="5m",
+                since=self.round_milliseconds(start_time),
+                params=params,
+            )
+            for symbol in active_symbols
+        ]
+        ohlcvs = await asyncio.gather(*coroutines)
+
+        data: list[OHLCV] = []
+        for symbol, ohlcvs in list(zip(active_symbols, ohlcvs)):
+            for ohlcv in ohlcvs:
+                data.append(
+                    OHLCV(
+                        symbol=symbol,
+                        exchange=self._exchange,
+                        timestamp=ohlcv[0],
+                        open=ohlcv[1],
+                        high=ohlcv[2],
+                        low=ohlcv[3],
+                        close=ohlcv[4],
+                        volume=ohlcv[5],
+                        datetime=self.exchange.iso8601(ohlcv[0]),
+                    )
+                )
+        return data
