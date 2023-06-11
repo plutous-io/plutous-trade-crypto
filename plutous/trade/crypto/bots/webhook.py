@@ -24,13 +24,14 @@ class WebhookBot(BaseBot):
             close_quantity = quantity
             if quantity >= prev_position_size:
                 close_quantity = None
-                quantity -= prev_position_size
             
             await super().close_position(
                 symbol=self.config.symbol,
                 side=prev_position_side,
                 quantity=close_quantity,
             )
+
+            quantity -= prev_position_size
 
         if quantity > 0:
             await self.open_position(
