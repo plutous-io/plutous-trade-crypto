@@ -54,5 +54,30 @@ class FundingRateCollector(BaseCollector):
         return fr, fs
 
     async def backfill_data(self, start_time: int, end_time: int | None = None):
+        if not end_time:
+            end_time = self.round_milliseconds(self.exchange.milliseconds(), offset=-1)
+
         data: list[FundingRate] = []
+
+        active_symbols = await self.fetch_active_symbols()
+        for symbol in active_symbols:
+            with db.Session() as session:
+                last_funding_rate: FundingRate = (
+                    session.query(FundingRate).filter(
+                        FundingRate.exchange == self._exchange,
+                        FundingRate.symbol == symbol,
+                        FundingRate.timestamp == start_time,
+                    )
+                ).one()
+
+            for time in range(start_time, end_time + 300000, 300000):
+                data.append(
+                    FundingRate(
+                        symbol=symbol,
+                        exchange=last_funding_rate.exchange,
+                        timestamp=time,
+                        funding_rate=last_funding_rate.funding_rate,
+                        datetime=self.exchange.iso8601(time),
+                    )
+                )
         return data

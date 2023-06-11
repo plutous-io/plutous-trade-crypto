@@ -51,7 +51,7 @@ class LongShortRatioCollector(BaseCollector):
                 symbol,
                 timeframe="5m",
                 since=self.round_milliseconds(start_time),
-                params={},
+                params=params,
             )
             for symbol in active_symbols
         ]
