@@ -23,7 +23,7 @@ class OIAlert(BaseAlert):
             return
 
         interval, frequnecy = (
-            int(self.config.frequency[:-1]) * self.config.lookback - 1,
+            int(self.config.frequency[:-1]) * (self.config.lookback - 1),
             self.config.frequency[-1].replace("m", "min").replace("h", "hr"),
         )
         if (interval >= 60) & (frequnecy == "min"):
