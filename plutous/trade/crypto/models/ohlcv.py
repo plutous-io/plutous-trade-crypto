@@ -1,4 +1,5 @@
 import pandas as pd
+from loguru import logger
 from sqlalchemy import Connection, func, select, text
 from sqlalchemy.orm import Mapped, declared_attr
 
@@ -27,6 +28,8 @@ class OHLCV(Base):
         frequency: str,
         conn: Connection,
     ) -> pd.DataFrame:
+        logger.info(f"Loading {cls.__name__} data ")
+        frequency = frequency.lower()
         miniute_interval = 60 if frequency == "1h" else int(frequency[:-1])
         dt = func.date_trunc("hour", cls.datetime) + func.floor(
             func.extract("minute", cls.datetime) / miniute_interval

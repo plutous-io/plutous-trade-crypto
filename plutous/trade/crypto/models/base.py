@@ -1,6 +1,7 @@
 from datetime import datetime as dt
 
 import pandas as pd
+from loguru import logger
 from sqlalchemy import BIGINT, Connection, Index, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
@@ -50,6 +51,8 @@ class Base(DeclarativeBase, BaseMixin):
         frequency: str,
         conn: Connection,
     ) -> pd.DataFrame:
+        logger.info(f"Loading {cls.__name__} data ")
+        frequency = frequency.lower()
         sql = (
             select(
                 cls.timestamp,

@@ -1,4 +1,5 @@
 import pandas as pd
+from loguru import logger
 from sqlalchemy import DECIMAL, Connection, select
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +20,7 @@ class FundingSettlement(Base):
         frequency: str,
         conn: Connection,
     ) -> pd.DataFrame:
+        logger.info(f"Loading {cls.__name__} data ")
         sql = (
             select(
                 cls.timestamp,
