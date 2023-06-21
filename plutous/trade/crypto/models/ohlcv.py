@@ -54,7 +54,7 @@ class OHLCV(Base):
                 .over(partition_by=[dt, cls.symbol], order_by=cls.timestamp.desc())
                 .label("close"),
                 func.sum(cls.volume)
-                .over(partition_by=[dt, cls.symbol], order_by=cls.timestamp)
+                .over(partition_by=[dt, cls.symbol], order_by=cls.timestamp.desc())
                 .label("volume"),
             )
             .distinct(dt.label("datetime"), cls.symbol)
