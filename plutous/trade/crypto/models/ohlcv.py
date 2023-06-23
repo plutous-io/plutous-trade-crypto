@@ -1,6 +1,6 @@
 import pandas as pd
 from loguru import logger
-from sqlalchemy import Connection, func, select, text
+from sqlalchemy import ColumnExpressionArgument, Connection, func, select, text
 from sqlalchemy.orm import Mapped, declared_attr
 
 from plutous.enums import Exchange
@@ -27,6 +27,7 @@ class OHLCV(Base):
         since: int,
         frequency: str,
         conn: Connection,
+        filters: list[ColumnExpressionArgument[bool]] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
         frequency = frequency.lower()
@@ -63,8 +64,11 @@ class OHLCV(Base):
                 cls.exchange == exchange,
             )
         )
-        if len(symbols):
+        if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
+
+        if filters:
+            sql = sql.where(*filters)
 
         df = pd.read_sql(sql, conn).pivot(
             index="datetime",

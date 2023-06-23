@@ -1,6 +1,6 @@
 import pandas as pd
 from loguru import logger
-from sqlalchemy import DECIMAL, Connection, select
+from sqlalchemy import DECIMAL, ColumnExpressionArgument, Connection, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from plutous.enums import Exchange
@@ -19,6 +19,7 @@ class FundingSettlement(Base):
         since: int,
         frequency: str,
         conn: Connection,
+        filters: list[ColumnExpressionArgument[bool]] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
         sql = (
@@ -38,6 +39,9 @@ class FundingSettlement(Base):
 
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
+
+        if filters:
+            sql = sql.where(*filters)
 
         return pd.read_sql(sql, conn).pivot(
             index="datetime",

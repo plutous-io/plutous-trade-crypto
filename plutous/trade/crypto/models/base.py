@@ -2,7 +2,15 @@ from datetime import datetime as dt
 
 import pandas as pd
 from loguru import logger
-from sqlalchemy import BIGINT, Connection, Index, func, select, text
+from sqlalchemy import (
+    BIGINT,
+    ColumnExpressionArgument,
+    Connection,
+    Index,
+    func,
+    select,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from plutous.enums import Exchange
@@ -50,6 +58,7 @@ class Base(DeclarativeBase, BaseMixin):
         since: int,
         frequency: str,
         conn: Connection,
+        filters: list[ColumnExpressionArgument[bool]] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
         frequency = frequency.lower()
@@ -82,6 +91,9 @@ class Base(DeclarativeBase, BaseMixin):
 
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
+
+        if filters:
+            sql = sql.where(*filters)
 
         return pd.read_sql(sql, conn).pivot(
             index="datetime",
