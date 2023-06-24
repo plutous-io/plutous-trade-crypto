@@ -2,7 +2,7 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import requests
 from ccxt.base.errors import OrderNotFound
@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from plutous import database as db
 from plutous.trade.crypto import exchanges as ex
+from plutous.trade.crypto.enums import OrderType
 from plutous.trade.enums import Action, PositionSide
 from plutous.trade.models import Bot, Position, Trade
 
@@ -61,14 +62,20 @@ class BaseBot(ABC):
         self,
         symbol: str,
         side: PositionSide,
-        quantity: float,
+        quantity: float | None = None,
+        order_type: OrderType = OrderType.MARKET,
     ):
         action = Action.BUY if side == PositionSide.LONG else Action.SELL
         ticker = await self.exchange.fetch_ticker(symbol)
         price = ticker["last"]
 
+        if quantity is None:
+            amount = self.bot.allocated_capital / (self.bot.max_position - len(self.positions))
+            quantity = amount / price
+
         if not self.config.dry_run:
-            trades = await self.create_market_order(
+            create_order = getattr(self, f"create_{order_type.value}_order")
+            trades: list[dict[str, Any]] = await create_order(
                 symbol=symbol,
                 side=action.value,
                 amount=quantity,
@@ -102,7 +109,7 @@ class BaseBot(ABC):
             )
             self.positions[symbol] = position
 
-        trades = [
+        trds = [
             Trade(
                 exchange=self.bot.exchange,
                 asset_type=self.bot.strategy.asset_type,
@@ -119,7 +126,7 @@ class BaseBot(ABC):
             for t in trades
         ]
 
-        self.session.add_all(trades)
+        self.session.add_all(trds)
         self.session.commit()
 
         circle = ":red_circle:" if side == PositionSide.SHORT else ":green_circle:"
@@ -138,6 +145,7 @@ class BaseBot(ABC):
         symbol: str,
         side: PositionSide,
         quantity: float | None = None,
+        order_type: OrderType = OrderType.MARKET,
     ):
         position = self.positions.get((symbol, side))
         if position is None:
@@ -146,7 +154,8 @@ class BaseBot(ABC):
         quantity = min(quantity or position.quantity, position.quantity)
 
         if not self.config.dry_run:
-            trades = await self.create_market_order(
+            create_order = getattr(self, f"create_{order_type.value}_order")
+            trades = await create_order(
                 symbol=symbol,
                 side=action.value,
                 amount=quantity,
@@ -169,8 +178,10 @@ class BaseBot(ABC):
             ]
 
         for t in trades:
-            realized_pnl =(t["price"] - position.price) * t["amount"] * (
-                1 if position.side == PositionSide.LONG else -1
+            realized_pnl = (
+                (t["price"] - position.price)
+                * t["amount"]
+                * (1 if position.side == PositionSide.LONG else -1)
             )
             trade = Trade(
                 exchange=self.bot.exchange,
@@ -215,7 +226,7 @@ class BaseBot(ABC):
     async def create_market_order(
         self,
         symbol: str,
-        side: str,
+        side: Literal["buy", "sell"],
         amount: float,
         params: dict[str, Any] = {},
     ) -> list[dict[str, Any]]:
@@ -237,7 +248,7 @@ class BaseBot(ABC):
     async def create_limit_chasing_order(
         self,
         symbol: str,
-        side: str,
+        side: Literal["buy", "sell"],
         amount: float,
         params: dict[str, Any] = {},
     ) -> list[dict[str, Any]]:
@@ -247,7 +258,16 @@ class BaseBot(ABC):
         start = time.time()
         while True:
             if time.time() - start > self.config.order_timeout:
-                raise Exception("Order timeout")
+                trades.extend(
+                    (
+                        await self.create_market_order(
+                            symbol,
+                            side,
+                            amount - filled_amount,
+                            params,
+                        )
+                    )
+                )
             orderbook = await self.exchange.watch_order_book(symbol)
             price = (
                 orderbook["bids"][5][0] if side == "buy" else orderbook["asks"][5][0]
