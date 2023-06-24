@@ -24,7 +24,6 @@ class BaseBotConfig(BaseModel):
 
 class BaseBot(ABC):
     def __init__(self, config: BaseBotConfig):
-        self.config = config
         self.session = session = db.Session()
         self.bot = bot = (
             session.query(Bot)
@@ -45,6 +44,13 @@ class BaseBot(ABC):
         self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(
             dict(apiKey=bot.api_key.key, secret=bot.api_key.secret)
         )
+
+        bot_config = bot.config or {}
+        bot_config.update(
+            {key: val for key, val in config.__dict__.items() if key not in bot_config}
+        )
+        config.__dict__.update(bot_config)
+        self.config = config
 
     def run(self, **kwargs):
         asyncio.run(self._run(**kwargs))
@@ -70,7 +76,9 @@ class BaseBot(ABC):
         price = ticker["last"]
 
         if quantity is None:
-            amount = self.bot.allocated_capital / (self.bot.max_position - len(self.positions))
+            amount = self.bot.allocated_capital / (
+                self.bot.max_position - len(self.positions)
+            )
             quantity = amount / price
 
         if not self.config.dry_run:
