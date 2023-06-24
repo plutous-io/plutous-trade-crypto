@@ -31,7 +31,7 @@ class FundingSettlement(Base):
                 cls.funding_rate,
             )
             .where(
-                cls.timestamp > since,
+                cls.timestamp >= since,
                 cls.exchange == exchange,
             )
             .order_by(cls.timestamp.asc())

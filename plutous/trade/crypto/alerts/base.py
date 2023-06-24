@@ -70,14 +70,6 @@ class BaseAlert(ABC):
 
                 self.data[table.__tablename__] = records
 
-            symbols = [
-                symbol
-                for symbol in list(self.data.values())[0].keys()
-                if symbol.endswith(":USDT")
-            ]
-            for d in self.data.values():
-                d = d[symbols]
-
     @abstractmethod
     def run(self):
         pass

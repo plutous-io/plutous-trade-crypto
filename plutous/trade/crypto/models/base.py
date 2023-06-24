@@ -71,7 +71,7 @@ class Base(DeclarativeBase, BaseMixin):
                 getattr(cls, cls.__main_column__),
             )
             .where(
-                cls.timestamp > since,
+                cls.timestamp >= since,
                 cls.exchange == exchange,
             )
             .order_by(cls.timestamp.asc())

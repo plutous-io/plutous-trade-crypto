@@ -60,7 +60,7 @@ class OHLCV(Base):
             )
             .distinct(dt.label("datetime"), cls.symbol)
             .where(
-                cls.timestamp > since,
+                cls.timestamp >= since,
                 cls.exchange == exchange,
             )
         )
