@@ -115,7 +115,7 @@ class BaseBot(ABC):
                 realized_pnl=0,
                 opened_at=trades[0]["datetime"],
             )
-            self.positions[symbol] = position
+            self.positions[(symbol, side)] = position
 
         trds = [
             Trade(
