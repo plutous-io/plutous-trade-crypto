@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 import telegram
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from plutous import database as db
 from plutous.enums import Exchange
@@ -26,15 +27,24 @@ class BaseAlertConfig(BaseModel):
     frequency: str
     lookback: int
     exchange: Exchange
+    whitelist_symbols: list[str] = []
+    blacklist_symbols: list[str] = []
     discord_webhooks: list[str] | str = []
     telegram_config: list[dict[str, str]] | str = []
+    filters: list[str] | str = []
 
     def __init__(self, **data):
         super().__init__(**data)
+        if isinstance(self.whitelist_symbols, str):
+            self.whitelist_symbols = json.loads(self.whitelist_symbols)
+        if isinstance(self.blacklist_symbols, str):
+            self.blacklist_symbols = json.loads(self.blacklist_symbols)
         if isinstance(self.discord_webhooks, str):
             self.discord_webhooks = json.loads(self.discord_webhooks)
         if isinstance(self.telegram_config, str):
             self.telegram_config = json.loads(self.telegram_config)
+        if isinstance(self.filters, str):
+            self.filters = json.loads(self.filters)
 
 
 class BaseAlert(ABC):
@@ -50,18 +60,22 @@ class BaseAlert(ABC):
         self.data: dict[str, pd.DataFrame] = {}
 
         with db.engine.connect() as conn:
-            filters = {
+            kwargs = {
                 "exchange": config.exchange,
                 "since": since,
                 "frequency": config.frequency,
+                "symbols": config.whitelist_symbols,
                 "conn": conn,
-                "symbols": [],
             }
+            blacklists = "'" + "', '".join(config.blacklist_symbols) + "'"
+            filters = [text(sql) for sql in config.filters] + [
+                text(f"symbol not in ({blacklists})")
+            ]
             for table in self.__tables__:
                 records = pd.DataFrame()
                 start = time.time()
                 while len(records) < config.lookback:
-                    records = table.query(**filters)
+                    records = table.query(**kwargs, filters=filters)
                     time.sleep(1)
                     if time.time() - start > 60:
                         raise TimeoutError(

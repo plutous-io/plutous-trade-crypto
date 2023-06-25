@@ -7,6 +7,7 @@ from sqlalchemy import (
     ColumnExpressionArgument,
     Connection,
     Index,
+    TextClause,
     func,
     select,
     text,
@@ -58,7 +59,7 @@ class Base(DeclarativeBase, BaseMixin):
         since: int,
         frequency: str,
         conn: Connection,
-        filters: list[ColumnExpressionArgument[bool]] = [],
+        filters: list[ColumnExpressionArgument[bool]] | list[TextClause] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
         frequency = frequency.lower()
