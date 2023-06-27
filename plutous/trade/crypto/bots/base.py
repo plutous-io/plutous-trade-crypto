@@ -181,16 +181,17 @@ class BaseBot(ABC):
                     "price": price,
                     "amount": quantity,
                     "id": "dry_run",
-                    "info": {"realizedPnl": realized_pnl},
                 }
             ]
 
+        total_realized_pnl = 0
         for t in trades:
             realized_pnl = (
                 (t["price"] - position.price)
                 * t["amount"]
                 * (1 if position.side == PositionSide.LONG else -1)
             )
+            total_realized_pnl += realized_pnl
             trade = Trade(
                 exchange=self.bot.exchange,
                 asset_type=self.bot.strategy.asset_type,
@@ -219,15 +220,14 @@ class BaseBot(ABC):
 
         quantity = sum([t["amount"] for t in trades])
         price = sum([t["amount"] * t["price"] for t in trades]) / quantity
-        realized_pnl = sum([float(t["info"]["realizedPnl"]) for t in trades])
-        icon = ":white_check_mark:" if realized_pnl > 0 else ":x:"
+        icon = ":white_check_mark:" if total_realized_pnl > 0 else ":x:"
         self.send_discord_message(
             f"""
             {self.bot.name}
             {icon} Closed {position.side.value} on **{symbol}**
             `price: {price}`
             `quantity: {quantity}`
-            `realized_pnl: {realized_pnl}`
+            `realized_pnl: {total_realized_pnl}`
             """
         )
 
