@@ -172,7 +172,7 @@ class BaseBot(ABC):
         else:
             ticker: dict[str, Any] = await self.exchange.fetch_ticker(symbol)  # type: ignore
             price = ticker["last"]
-            realized_pnl = price * quantity - position.price * quantity * (
+            realized_pnl = (price * quantity - position.price * quantity) * (
                 1 if position.side == PositionSide.LONG else -1
             )
             trades = [
