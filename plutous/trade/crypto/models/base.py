@@ -54,19 +54,24 @@ class Base(DeclarativeBase, BaseMixin):
     @classmethod
     def query(
         cls,
+        conn: Connection,
         exchange: Exchange,
         symbols: list[str],
-        since: int,
         frequency: str,
-        conn: Connection,
+        since: int,
+        until: int | None = None,
         filters: list[ColumnExpressionArgument[bool]] | list[TextClause] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
         frequency = frequency.lower()
+        miniute_interval = 60 if frequency == "1h" else int(frequency[:-1])
+        dt = func.date_trunc("hour", cls.datetime) + func.floor(
+            func.extract("minute", cls.datetime) / miniute_interval
+        ) * text(f"'{frequency}'::interval")
         sql = (
             select(
                 cls.timestamp,
-                cls.datetime,
+                dt.label("datetime"),
                 cls.exchange,
                 cls.symbol,
                 getattr(cls, cls.__main_column__),
@@ -92,6 +97,9 @@ class Base(DeclarativeBase, BaseMixin):
 
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
+
+        if until:
+            sql = sql.where(cls.timestamp < until)
 
         if filters:
             sql = sql.where(*filters)

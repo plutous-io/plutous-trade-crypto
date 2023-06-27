@@ -22,11 +22,12 @@ class OHLCV(Base):
     @classmethod
     def query(
         cls,
+        conn: Connection,
         exchange: Exchange,
         symbols: list[str],
-        since: int,
         frequency: str,
-        conn: Connection,
+        since: int,
+        until: int | None = None,
         filters: list[ColumnExpressionArgument[bool]] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
@@ -66,6 +67,9 @@ class OHLCV(Base):
         )
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
+
+        if until:
+            sql = sql.where(cls.timestamp < until)
 
         if filters:
             sql = sql.where(*filters)
