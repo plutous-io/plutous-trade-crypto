@@ -76,7 +76,13 @@ class BaseBot(ABC):
         price = ticker["last"]
 
         if quantity is None:
-            amount = self.bot.allocated_capital / (
+            position_size = sum(
+                [
+                    p.price * p.quantity * (1 if k[1] == PositionSide.LONG else -1)
+                    for k, p in self.positions.items()
+                ]
+            ) * (1 if side == PositionSide.LONG else -1)
+            amount = (self.bot.allocated_capital - position_size) / (
                 self.bot.max_position - len(self.positions)
             )
             quantity = amount / price
@@ -238,6 +244,7 @@ class BaseBot(ABC):
         amount: float,
         params: dict[str, Any] = {},
     ) -> list[dict[str, Any]]:
+        await self.exchange.load_markets()
         amount = float(self.exchange.amount_to_precision(symbol, amount))
         order = await self.exchange.create_order(
             symbol=symbol,
@@ -260,6 +267,7 @@ class BaseBot(ABC):
         amount: float,
         params: dict[str, Any] = {},
     ) -> list[dict[str, Any]]:
+        await self.exchange.load_markets()
         amount = float(self.exchange.amount_to_precision(symbol, amount))
         filled_amount = 0
         trades = []
@@ -276,6 +284,8 @@ class BaseBot(ABC):
                         )
                     )
                 )
+                break
+            
             orderbook = await self.exchange.watch_order_book(symbol)
             price = (
                 orderbook["bids"][5][0] if side == "buy" else orderbook["asks"][5][0]
