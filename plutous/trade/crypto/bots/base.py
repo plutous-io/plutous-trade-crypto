@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 import requests
+import sentry_sdk
 from ccxt.base.errors import OrderNotFound
 from pydantic import BaseModel
 from sqlalchemy.orm import joinedload
@@ -32,6 +33,8 @@ class BaseBot(ABC):
             .filter(Bot.id == config.bot_id)
             .one()
         )
+        if bot.sentry_dsn:
+            sentry_sdk.init(bot.sentry_dsn)
         positions = (
             session.query(Position)
             .filter(
@@ -285,7 +288,7 @@ class BaseBot(ABC):
                     )
                 )
                 break
-            
+
             orderbook = await self.exchange.watch_order_book(symbol)
             price = (
                 orderbook["bids"][5][0] if side == "buy" else orderbook["asks"][5][0]
