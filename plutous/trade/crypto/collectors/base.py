@@ -1,22 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Any, Type, Union
 from datetime import datetime, timedelta
+from typing import Any, Type
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from plutous import database as db
 from plutous.enums import Exchange
+from plutous.trade.crypto import exchanges as ex
 from plutous.trade.crypto.enums import CollectorType
-from plutous.trade.crypto.exchanges import BinanceCoinm, BinanceUsdm
 from plutous.trade.crypto.models import Base
-
-EXCHANGE_CLS = {
-    Exchange.BINANCE_USDM: BinanceUsdm,
-    Exchange.BINANCE_COINM: BinanceCoinm,
-}
-
-ExchangeType = Union[BinanceUsdm, BinanceCoinm]
 
 
 class BaseCollector(ABC):
@@ -25,7 +18,9 @@ class BaseCollector(ABC):
 
     def __init__(self, exchange: Exchange, rate_limit: bool = False):
         self._exchange = exchange
-        self.exchange: ExchangeType = EXCHANGE_CLS[exchange]({"rateLimit": rate_limit})
+        self.exchange: ex.Exchange = getattr(ex, exchange.value)(
+            {"rateLimit": rate_limit}
+        )
 
     async def collect(self):
         data = await self.fetch_data()
