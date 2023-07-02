@@ -23,9 +23,9 @@ class BaseCollector(ABC):
     COLLECTOR_TYPE: CollectorType
     TABLE: Type[Base]
 
-    def __init__(self, exchange: Exchange):
+    def __init__(self, exchange: Exchange, rate_limit: bool = False):
         self._exchange = exchange
-        self.exchange: ExchangeType = EXCHANGE_CLS[exchange]({"rateLimit": False})
+        self.exchange: ExchangeType = EXCHANGE_CLS[exchange]({"rateLimit": rate_limit})
 
     async def collect(self):
         data = await self.fetch_data()
