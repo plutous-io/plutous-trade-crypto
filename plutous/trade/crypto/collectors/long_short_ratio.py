@@ -40,7 +40,12 @@ class LongShortRatioCollector(BaseCollector):
             for symbol, long_short_ratio in list(zip(active_symbols, long_short_ratios))
         ]
 
-    async def backfill_data(self, start_time: int, end_time: int | None = None):
+    async def backfill_data(
+        self,
+        start_time: int,
+        end_time: int | None = None,
+        missing_only: bool = False,
+    ):
         params = {}
         if end_time:
             params["endTime"] = end_time

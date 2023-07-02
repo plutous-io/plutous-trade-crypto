@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta
 
 from typer import Context, Typer
 
@@ -25,6 +26,18 @@ def collect(
     """Collect data from exchange."""
     collector = COLLECTORS[collector_type](exchange)
     asyncio.run(collector.collect())
+
+
+@app.command()
+def backfill(
+    exchange: Exchange,
+    collector_type: CollectorType,
+):
+    """Backfill last 1-hour data from exchange."""
+    collector = COLLECTORS[collector_type](exchange)
+
+    since = datetime.now() - timedelta(hours=1)
+    asyncio.run(collector.backfill(since))
 
 
 @app.command(

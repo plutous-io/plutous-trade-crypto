@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta
 
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import OpenInterest
@@ -9,6 +10,15 @@ from .base import BaseCollector
 class OpenInterestCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.OPEN_INTEREST
     TABLE = OpenInterest
+
+    async def backfill(
+        self,
+        since: datetime,
+        duration: timedelta | None = None,
+        missing_only: bool = False,
+    ):
+        since += timedelta(minutes=5)
+        await super().backfill(since, duration, missing_only)
 
     async def fetch_data(self):
         active_symbols = await self.fetch_active_symbols()
@@ -31,7 +41,12 @@ class OpenInterestCollector(BaseCollector):
             for open_interest in open_interests
         ]
 
-    async def backfill_data(self, start_time: int, end_time: int | None = None):
+    async def backfill_data(
+        self,
+        start_time: int,
+        end_time: int | None = None,
+        missing_only: bool = False,
+    ):
         params = {}
         if end_time:
             params["endTime"] = end_time
