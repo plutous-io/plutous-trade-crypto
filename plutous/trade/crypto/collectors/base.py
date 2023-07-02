@@ -34,7 +34,12 @@ class BaseCollector(ABC):
             session.commit()
         await self.exchange.close()
 
-    async def backfill(self, since: datetime, duration: timedelta | None = None):
+    async def backfill(
+        self,
+        since: datetime,
+        duration: timedelta | None = None,
+        missing_only: bool = False,
+    ):
         start_time = int(since.timestamp()) * 1000
         end_time = None
         if duration:
@@ -42,7 +47,7 @@ class BaseCollector(ABC):
                 start_time, offset=int(duration / timedelta(minutes=5))
             )
 
-        data = await self.backfill_data(start_time, end_time)
+        data = await self.backfill_data(start_time, end_time, missing_only)
         with db.Session() as session:
             self._insert(data, session)
             session.commit()
@@ -58,7 +63,10 @@ class BaseCollector(ABC):
 
     @abstractmethod
     async def backfill_data(
-        self, start_time: int, end_time: int | None = None
+        self,
+        start_time: int,
+        end_time: int | None = None,
+        missing_only: bool = False,
     ) -> list[Base]:
         pass
 

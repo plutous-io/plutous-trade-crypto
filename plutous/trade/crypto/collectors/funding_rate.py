@@ -1,4 +1,5 @@
 from typing import Any
+import pandas as pd
 
 from plutous import database as db
 from plutous.trade.crypto.enums import CollectorType
@@ -53,31 +54,52 @@ class FundingRateCollector(BaseCollector):
         ]
         return fr, fs
 
-    async def backfill_data(self, start_time: int, end_time: int | None = None):
-        if not end_time:
-            end_time = self.round_milliseconds(self.exchange.milliseconds(), offset=-1)
-
+    async def backfill_data(
+        self,
+        start_time: int,
+        end_time: int | None = None,
+        missing_only: bool = False,
+    ):
+        """Actually uses forward fill"""
         data: list[FundingRate] = []
 
-        active_symbols = await self.fetch_active_symbols()
-        for symbol in active_symbols:
-            with db.Session() as session:
-                last_funding_rate: FundingRate = (
-                    session.query(FundingRate).filter(
-                        FundingRate.exchange == self._exchange,
-                        FundingRate.symbol == symbol,
-                        FundingRate.timestamp == start_time,
-                    )
-                ).one()
+        with db.engine.connect() as conn:
+            kwargs = {
+                "exchange": self._exchange,
+                "symbols": await self.fetch_active_symbols(),
+                "since": self.round_milliseconds(start_time),
+                "frequency": "5m",
+                "conn": conn,
+            }
+            if end_time:
+                kwargs["until"] = end_time
+            fr_df = FundingRate.query(**kwargs).asfreq("5min")
 
-            for time in range(start_time, end_time + 300000, 300000):
-                data.append(
-                    FundingRate(
-                        symbol=symbol,
-                        exchange=last_funding_rate.exchange,
-                        timestamp=time,
-                        funding_rate=last_funding_rate.funding_rate,
-                        datetime=self.exchange.iso8601(time),
-                    )
+        if len(fr_df):
+            fr_df = fr_df.asfreq("5min")
+            is_na_fr_df = fr_df.isna()
+            fr_cols = (
+                fr_df.columns[is_na_fr_df.any()] if missing_only else fr_df.columns
+            )
+            fr_df.ffill(inplace=True)
+
+            for symbol in fr_cols.to_list():
+                fr = (
+                    fr_df[symbol][is_na_fr_df[symbol]]
+                    if missing_only
+                    else fr_df[symbol]
                 )
+                for ts, value in fr.items():
+                    time = int(ts.timestamp() * 1000)
+                    if pd.isnull(value):
+                        continue
+                    data.append(
+                        FundingRate(
+                            symbol=symbol,
+                            exchange=self._exchange,
+                            timestamp=time,
+                            funding_rate=value,
+                            datetime=self.exchange.iso8601(time),
+                        )
+                    )
         return data
