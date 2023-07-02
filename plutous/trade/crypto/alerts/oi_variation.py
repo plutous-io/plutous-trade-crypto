@@ -47,16 +47,15 @@ class OIVariationAlert(BaseAlert):
                 frequnecy = "hr"
                 interval = interval // 60
 
-        msg = f"**OI Variation Alert (last {interval}{frequnecy})** \n"
+        msg = f"**OI Variation Alert ({self.config.exchange.value}) (last {interval}{frequnecy})** \n"
         symbols = []
         mention = False
         for symbol, pct in df_latest.items():
-            sbl = symbol.split(":")[0]
             if symbol not in df_last:
-                sbl = f"**{sbl}**"
+                symbol = f"**{symbol}**"
                 if self.config.dc_mentions:
                     mention = True
-            symbols.append((sbl, pct))
+            symbols.append((symbol, pct))
 
         if mention:
             msg += " ".join(self.config.dc_mentions) + " \n"
