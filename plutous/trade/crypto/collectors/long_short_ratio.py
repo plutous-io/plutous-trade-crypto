@@ -46,9 +46,14 @@ class LongShortRatioCollector(BaseCollector):
         end_time: int | None = None,
         missing_only: bool = False,
     ):
-        params = {}
+        params = {
+            "endTime": self.round_milliseconds(
+                self.exchange.milliseconds(),
+                offset=-1,
+            )
+        }
         if end_time:
-            params["endTime"] = end_time
+            params["endTime"] = min(params["endTime"], end_time)
 
         active_symbols = await self.fetch_active_symbols()
         coroutines = [
