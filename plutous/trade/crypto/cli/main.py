@@ -1,7 +1,9 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from typer import Context, Typer
+import pandas as pd
+from typer import Context, Option, Typer
+from typing_extensions import Annotated
 
 from plutous.cli.utils import parse_context_args
 from plutous.enums import Exchange
@@ -22,9 +24,10 @@ for a in apps:
 def collect(
     exchange: Exchange,
     collector_type: CollectorType,
+    rate_limit: Annotated[bool, Option()] = False,
 ):
     """Collect data from exchange."""
-    collector = COLLECTORS[collector_type](exchange)
+    collector = COLLECTORS[collector_type](exchange, rate_limit=rate_limit)
     asyncio.run(collector.collect())
 
 
@@ -32,11 +35,12 @@ def collect(
 def backfill(
     exchange: Exchange,
     collector_type: CollectorType,
+    lookback: Annotated[str, Option()] = "1h",
 ):
     """Backfill last 1-hour data from exchange."""
     collector = COLLECTORS[collector_type](exchange)
 
-    since = datetime.now() - timedelta(hours=1)
+    since = datetime.now() - pd.Timedelta(lookback).to_pytimedelta()
     asyncio.run(collector.backfill(since))
 
 
