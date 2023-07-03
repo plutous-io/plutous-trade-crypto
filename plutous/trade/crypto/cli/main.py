@@ -27,7 +27,7 @@ def collect(
     rate_limit: Annotated[bool, Option()] = False,
 ):
     """Collect data from exchange."""
-    collector = COLLECTORS[collector_type](exchange, rate_limit=rate_limit)
+    collector = COLLECTORS[collector_type](exchange, rate_limit)
     asyncio.run(collector.collect())
 
 
@@ -35,10 +35,11 @@ def collect(
 def backfill(
     exchange: Exchange,
     collector_type: CollectorType,
+    rate_limit: Annotated[bool, Option()] = False,
     lookback: Annotated[str, Option()] = "1h",
 ):
     """Backfill last 1-hour data from exchange."""
-    collector = COLLECTORS[collector_type](exchange)
+    collector = COLLECTORS[collector_type](exchange, rate_limit)
 
     since = datetime.now() - pd.Timedelta(lookback).to_pytimedelta()
     asyncio.run(collector.backfill(since))

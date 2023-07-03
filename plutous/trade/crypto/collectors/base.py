@@ -18,9 +18,10 @@ class BaseCollector(ABC):
 
     def __init__(self, exchange: Exchange, rate_limit: bool = False):
         self._exchange = exchange
-        self.exchange: ex.Exchange = getattr(ex, exchange.value)(
-            {"rateLimit": rate_limit}
-        )
+        params = {}
+        if not rate_limit:
+            params["rateLimit"] = rate_limit
+        self.exchange: ex.Exchange = getattr(ex, exchange.value)(params)
 
     async def collect(self):
         data = await self.fetch_data()
