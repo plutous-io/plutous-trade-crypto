@@ -496,7 +496,6 @@ class BinanceBase(binance):
         }
 
     def handle_message(self, client, message):
-
         methods = {
             "markPriceUpdate": self.handle_funding_rate,
         }
@@ -610,7 +609,13 @@ class Binance(BinanceBase):
         limit=None,
         params={},
     ):
-        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
+        return await super().fetch_ohlcv(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
 
     @paginate(
         max_limit=1000,
@@ -623,7 +628,12 @@ class Binance(BinanceBase):
         limit=None,
         params={},
     ):
-        return await super().fetch_my_trades(symbol, since, limit, params)
+        return await super().fetch_my_trades(
+            symbol,
+            since,
+            limit,
+            params,
+        )
 
 
 class BinanceUsdm(BinanceBase, binanceusdm):
@@ -636,7 +646,13 @@ class BinanceUsdm(BinanceBase, binanceusdm):
         limit=None,
         params={},
     ):
-        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
+        return await super().fetch_ohlcv(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
 
     @paginate(
         max_limit=1000,
@@ -669,6 +685,23 @@ class BinanceUsdm(BinanceBase, binanceusdm):
         )
 
     @paginate(max_limit=500)
+    async def fetch_open_interest_history(
+        self,
+        symbol,
+        timeframe="5m",
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_open_interest_history(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
+
+    @paginate(max_limit=500)
     async def fetch_long_short_ratio_history(
         self,
         symbol,
@@ -696,7 +729,13 @@ class BinanceCoinm(BinanceBase, binancecoinm):
         limit=None,
         params={},
     ):
-        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
+        return await super().fetch_ohlcv(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
 
     @paginate(max_limit=1000)
     async def fetch_my_trades(
@@ -706,7 +745,12 @@ class BinanceCoinm(BinanceBase, binancecoinm):
         limit=None,
         params={},
     ):
-        return await super().fetch_my_trades(symbol, since, limit, params)
+        return await super().fetch_my_trades(
+            symbol,
+            since,
+            limit,
+            params,
+        )
 
     @paginate(
         max_limit=1000,
@@ -720,8 +764,31 @@ class BinanceCoinm(BinanceBase, binancecoinm):
         limit=None,
         params={},
     ):
-        return await super().fetch_incomes(symbol, since, limit, income_type, params)
-    
+        return await super().fetch_incomes(
+            symbol,
+            since,
+            limit,
+            income_type,
+            params,
+        )
+
+    @paginate(max_limit=500)
+    async def fetch_open_interest_history(
+        self,
+        symbol,
+        timeframe="5m",
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_open_interest_history(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
+
     @paginate(max_limit=500)
     async def fetch_long_short_ratio_history(
         self,
