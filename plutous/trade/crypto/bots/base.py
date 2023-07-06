@@ -2,6 +2,7 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 import requests
@@ -71,12 +72,12 @@ class BaseBot(ABC):
         self,
         symbol: str,
         side: PositionSide,
-        quantity: float | None = None,
+        quantity: Decimal | None = None,
         order_type: OrderType = OrderType.MARKET,
     ):
         action = Action.BUY if side == PositionSide.LONG else Action.SELL
         ticker = await self.exchange.fetch_ticker(symbol)
-        price = ticker["last"]
+        price: Decimal = Decimal(str(ticker["last"]))
 
         if quantity is None:
             position_size = sum(
@@ -95,20 +96,18 @@ class BaseBot(ABC):
             trades: list[dict[str, Any]] = await create_order(
                 symbol=symbol,
                 side=action.value,
-                amount=quantity,
+                amount=float(quantity),
                 params={"positionSide": side.value},
             )
         else:
             trades = [
                 {
                     "datetime": datetime.utcnow(),
-                    "price": price,
-                    "amount": quantity,
+                    "price": float(price),
+                    "amount": float(quantity),
                     "id": "dry_run",
                 }
             ]
-        quantity = sum([t["amount"] for t in trades])
-        price = sum([t["amount"] * t["price"] for t in trades]) / quantity
 
         side = PositionSide.LONG if action == Action.BUY else PositionSide.SHORT
         position = self.positions.get((symbol, side))
@@ -119,31 +118,35 @@ class BaseBot(ABC):
                 exchange=self.bot.exchange,
                 symbol=symbol,
                 side=side,
-                price=price,
-                quantity=quantity,
-                realized_pnl=0,
+                price=Decimal("0"),
+                quantity=Decimal("0"),
+                realized_pnl=Decimal("0"),
                 opened_at=trades[0]["datetime"],
             )
             self.positions[(symbol, side)] = position
 
-        trds = [
-            Trade(
+        _trades = []
+        for t in trades:
+            trade = Trade(
                 exchange=self.bot.exchange,
                 asset_type=self.bot.strategy.asset_type,
                 symbol=symbol,
                 action=action,
                 side=side,
-                quantity=t["amount"],
-                price=t["price"],
+                quantity=Decimal(str(t["amount"])),
+                price=Decimal(str(t["price"])),
                 identifier=t["id"],
-                realized_pnl=0,
+                realized_pnl=Decimal("0"),
                 datetime=t["datetime"],
                 position=position,
             )
-            for t in trades
-        ]
+            _trades.append(trade)
+            position.price = (
+                (position.price * position.quantity) + (trade.price * trade.quantity)
+            ) / (position.quantity + trade.quantity)
+            position.quantity += trade.quantity
 
-        self.session.add_all(trds)
+        self.session.add(_trades)
         self.session.commit()
 
         circle = ":red_circle:" if side == PositionSide.SHORT else ":green_circle:"
@@ -161,7 +164,7 @@ class BaseBot(ABC):
         self,
         symbol: str,
         side: PositionSide,
-        quantity: float | None = None,
+        quantity: Decimal | None = None,
         order_type: OrderType = OrderType.MARKET,
     ):
         position = self.positions.get((symbol, side))
@@ -175,29 +178,31 @@ class BaseBot(ABC):
             trades = await create_order(
                 symbol=symbol,
                 side=action.value,
-                amount=quantity,
+                amount=float(quantity),
                 params={"positionSide": position.side.value},
             )
         else:
             ticker: dict[str, Any] = await self.exchange.fetch_ticker(symbol)  # type: ignore
-            price = ticker["last"]
+            price = Decimal(str(ticker["last"]))
             realized_pnl = (price * quantity - position.price * quantity) * (
                 1 if position.side == PositionSide.LONG else -1
             )
             trades = [
                 {
                     "datetime": datetime.utcnow(),
-                    "price": price,
-                    "amount": quantity,
+                    "price": float(price),
+                    "amount": float(quantity),
                     "id": "dry_run",
                 }
             ]
 
         total_realized_pnl = 0
         for t in trades:
+            price = Decimal(str(t["price"]))
+            quantity = Decimal(str(t["amount"]))
             realized_pnl = (
-                (t["price"] - position.price)
-                * t["amount"]
+                (price - position.price)
+                * quantity
                 * (1 if position.side == PositionSide.LONG else -1)
             )
             total_realized_pnl += realized_pnl
@@ -208,15 +213,15 @@ class BaseBot(ABC):
                 side=position.side,
                 symbol=symbol,
                 action=action,
-                quantity=t["amount"],
-                price=t["price"],
+                quantity=quantity,
+                price=price,
                 identifier=t["id"],
                 realized_pnl=realized_pnl,
                 datetime=t["datetime"],
             )
             self.session.add(trade)
 
-            position.quantity -= t["amount"]
+            position.quantity -= quantity
             position.realized_pnl += realized_pnl
 
             if position.quantity == 0:
@@ -227,15 +232,15 @@ class BaseBot(ABC):
 
         self.session.commit()
 
-        quantity = sum([t["amount"] for t in trades])
-        price = sum([t["amount"] * t["price"] for t in trades]) / quantity
+        q = sum([t["amount"] for t in trades])
+        p = sum([t["amount"] * t["price"] for t in trades]) / q
         icon = ":white_check_mark:" if total_realized_pnl > 0 else ":x:"
         self.send_discord_message(
             f"""
             {self.bot.name}
             {icon} Closed {position.side.value} on **{symbol}**
-            `price: {price}`
-            `quantity: {quantity}`
+            `price: {p}`
+            `quantity: {q}`
             `realized_pnl: {total_realized_pnl}`
             """
         )
