@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 from plutous import database as db
 from plutous.trade.crypto import exchanges as ex
 from plutous.trade.crypto.enums import OrderType
-from plutous.trade.enums import Action, PositionSide
+from plutous.trade.enums import Action, PositionSide, StrategyDirection
 from plutous.trade.models import Bot, Position, Trade
 
 
@@ -22,6 +22,8 @@ class BaseBotConfig(BaseModel):
     bot_id: int
     dry_run: bool = False
     order_timeout: int = 60
+    open_position_msg: str | None = None
+    close_position_msg: str | None = None
 
 
 class BaseBot(ABC):
@@ -75,6 +77,9 @@ class BaseBot(ABC):
         quantity: Decimal | None = None,
         order_type: OrderType = OrderType.MARKET,
     ):
+        if self.bot.max_position == len(self.positions):
+            return
+
         action = Action.BUY if side == PositionSide.LONG else Action.SELL
         ticker = await self.exchange.fetch_ticker(symbol)
         price: Decimal = Decimal(str(ticker["last"]))
@@ -86,9 +91,11 @@ class BaseBot(ABC):
                     for k, p in self.positions.items()
                 ]
             ) * (1 if side == PositionSide.LONG else -1)
-            amount = (self.bot.allocated_capital - position_size) / (
-                self.bot.max_position - len(self.positions)
-            )
+            amount = abs(
+                self.bot.allocated_capital
+                * (-1 if self.bot.strategy.direction == StrategyDirection.SHORT else 1)
+                - position_size
+            ) / (self.bot.max_position - len(self.positions))
             quantity = amount / price
 
         if not self.config.dry_run:
@@ -151,14 +158,16 @@ class BaseBot(ABC):
 
         circle = ":red_circle:" if side == PositionSide.SHORT else ":green_circle:"
 
-        self.send_discord_message(
-            f"""
-            {self.bot.name}
-            {circle} Opened {side.value} on **{symbol}**
-            `price: {price}`
-            `quantity: {quantity}`
-            """
-        )
+        msg = [
+            self.bot.name,
+            f"{circle} Opened {side.value} on **{symbol}**",
+            f"`price: {price}`",
+            f"`quantity: {quantity}`",
+        ]
+        if self.config.open_position_msg:
+            msg.append(self.config.open_position_msg)
+
+        self.send_discord_message("\n".join(msg))
 
     async def close_position(
         self,
@@ -235,15 +244,17 @@ class BaseBot(ABC):
         q = sum([t["amount"] for t in trades])
         p = sum([t["amount"] * t["price"] for t in trades]) / q
         icon = ":white_check_mark:" if total_realized_pnl > 0 else ":x:"
-        self.send_discord_message(
-            f"""
-            {self.bot.name}
-            {icon} Closed {position.side.value} on **{symbol}**
-            `price: {p}`
-            `quantity: {q}`
-            `realized_pnl: {total_realized_pnl}`
-            """
-        )
+
+        msg = [
+            self.bot.name,
+            f"{icon} Closed {side.value} on **{symbol}**",
+            f"`price: {p}`",
+            f"`quantity: {q}`",
+            f"`realized_pnl: {total_realized_pnl}`",
+        ]
+        if self.config.close_position_msg:
+            msg.append(self.config.close_position_msg)
+        self.send_discord_message("\n".join(msg))
 
     async def create_market_order(
         self,
