@@ -146,7 +146,7 @@ class BaseBot(ABC):
             ) / (position.quantity + trade.quantity)
             position.quantity += trade.quantity
 
-        self.session.add(_trades)
+        self.session.add_all(_trades)
         self.session.commit()
 
         circle = ":red_circle:" if side == PositionSide.SHORT else ":green_circle:"
