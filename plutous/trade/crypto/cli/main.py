@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from typing import Type
 
 import pandas as pd
 from typer import Context, Option, Typer
@@ -56,8 +57,10 @@ def alert(
     ctx: Context,
 ):
     """Alert on data from exchange."""
-    alert_cls = getattr(alerts, f"{alert_type}Alert")
-    alert_config_cls = getattr(alerts, f"{alert_type}AlertConfig")
+    alert_cls: Type[alerts.BaseAlert] = getattr(alerts, f"{alert_type}Alert")
+    alert_config_cls: Type[alerts.BaseAlertConfig] = getattr(
+        alerts, f"{alert_type}AlertConfig"
+    )
 
     config = alert_config_cls(**parse_context_args(ctx))
     alert = alert_cls(config)
