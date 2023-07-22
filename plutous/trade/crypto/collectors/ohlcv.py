@@ -45,6 +45,7 @@ class OHLCVCollector(BaseCollector):
         self,
         start_time: int,
         end_time: int | None = None,
+        limit: int = 100,
         missing_only: bool = False,
     ):
         params = {
@@ -62,6 +63,7 @@ class OHLCVCollector(BaseCollector):
                 symbol,
                 timeframe="5m",
                 since=self.round_milliseconds(start_time),
+                limit=limit,
                 params=params,
             )
             for symbol in active_symbols

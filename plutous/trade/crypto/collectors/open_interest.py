@@ -15,10 +15,16 @@ class OpenInterestCollector(BaseCollector):
         self,
         since: datetime,
         duration: timedelta | None = None,
+        limit: int = 100,
         missing_only: bool = False,
     ):
         since += timedelta(minutes=5)
-        await super().backfill(since, duration, missing_only)
+        await super().backfill(
+            since=since,
+            duration=duration,
+            limit=limit,
+            missing_only=missing_only,
+        )
 
     async def fetch_data(self):
         active_symbols = await self.fetch_active_symbols()
@@ -45,6 +51,7 @@ class OpenInterestCollector(BaseCollector):
         self,
         start_time: int,
         end_time: int | None = None,
+        limit: int = 100,
         missing_only: bool = False,
     ):
         params = {
@@ -62,6 +69,7 @@ class OpenInterestCollector(BaseCollector):
                 symbol,
                 timeframe="5m",
                 since=self.round_milliseconds(start_time),
+                limit=limit,
                 params=params,
             )
             for symbol in active_symbols

@@ -58,6 +58,7 @@ class FundingRateCollector(BaseCollector):
         self,
         start_time: int,
         end_time: int | None = None,
+        limit: int = 100,
         missing_only: bool = False,
     ):
         """Actually uses forward fill"""
@@ -69,6 +70,7 @@ class FundingRateCollector(BaseCollector):
                 "symbols": await self.fetch_active_symbols(),
                 "since": self.round_milliseconds(start_time),
                 "frequency": "5m",
+                "limit": limit,
                 "conn": conn,
             }
             if end_time:

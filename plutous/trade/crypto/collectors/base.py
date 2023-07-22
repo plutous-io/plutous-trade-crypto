@@ -34,6 +34,7 @@ class BaseCollector(ABC):
         self,
         since: datetime,
         duration: timedelta | None = None,
+        limit: int = 100,
         missing_only: bool = False,
     ):
         start_time = int(since.timestamp()) * 1000
@@ -43,7 +44,12 @@ class BaseCollector(ABC):
                 start_time, offset=int(duration / timedelta(minutes=5))
             )
 
-        data = await self.backfill_data(start_time, end_time, missing_only)
+        data = await self.backfill_data(
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+            missing_only=missing_only,
+        )
         with db.Session() as session:
             self._insert(data, session)
             session.commit()
@@ -62,6 +68,7 @@ class BaseCollector(ABC):
         self,
         start_time: int,
         end_time: int | None = None,
+        limit: int = 100,
         missing_only: bool = False,
     ) -> list[Base]:
         pass
