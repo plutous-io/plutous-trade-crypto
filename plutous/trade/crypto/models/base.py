@@ -60,6 +60,7 @@ class Base(DeclarativeBase, BaseMixin):
         frequency: str,
         since: int,
         until: int | None = None,
+        limit: int | None = None,
         filters: list[ColumnExpressionArgument[bool]] | list[TextClause] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
@@ -82,18 +83,21 @@ class Base(DeclarativeBase, BaseMixin):
             )
             .order_by(cls.timestamp.asc())
         )
-        if frequency == "1h":
-            sql = sql.where(func.extract("minute", cls.datetime) == 55)
-        elif frequency == "30m":
-            sql = sql.where(func.extract("minute", cls.datetime).in_([25, 55]))
-        elif frequency == "15m":
-            sql = sql.where(func.extract("minute", cls.datetime).in_([10, 25, 40, 55]))
-        elif frequency == "10m":
-            sql = sql.where(
-                func.extract("minute", cls.datetime).in_([5, 15, 25, 35, 45, 55])
-            )
-        elif frequency == "5m":
-            pass
+        match frequency:
+            case "1h":
+                sql = sql.where(func.extract("minute", cls.datetime) == 55)
+            case "30m":
+                sql = sql.where(func.extract("minute", cls.datetime).in_([25, 55]))
+            case "15m":
+                sql = sql.where(
+                    func.extract("minute", cls.datetime).in_([10, 25, 40, 55])
+                )
+            case "10m":
+                sql = sql.where(
+                    func.extract("minute", cls.datetime).in_([5, 15, 25, 35, 45, 55])
+                )
+            case "5m":
+                pass
 
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
@@ -103,6 +107,9 @@ class Base(DeclarativeBase, BaseMixin):
 
         if filters:
             sql = sql.where(*filters)
+
+        if limit:
+            sql = sql.limit(limit)
 
         return pd.read_sql(sql, conn).pivot(
             index="datetime",
