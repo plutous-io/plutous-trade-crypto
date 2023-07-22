@@ -77,7 +77,7 @@ def paginate(
                     * 1000
                     * max_limit
                 )
-                kwargs["limit"] = max_limit
+                kwargs["limit"] = min(max_limit, kwargs.get("limit") or float("inf"))
             else:
                 diff = (
                     int(max_interval.total_seconds() * 1000)
