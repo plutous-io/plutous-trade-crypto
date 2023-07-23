@@ -1,5 +1,3 @@
-import json
-
 from plutous.trade.crypto.models import OpenInterest
 
 from .base import BaseAlert, BaseAlertConfig
@@ -18,6 +16,7 @@ class OIVariationAlert(BaseAlert):
         base_alert_config = BaseAlertConfig(**config.dict())
         base_alert_config.lookback += 1
         super().__init__(base_alert_config)
+        self.config = config
 
     def run(self):
         if self.config.lookback < 2:
