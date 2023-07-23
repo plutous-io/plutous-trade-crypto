@@ -7,7 +7,7 @@ from typing import Type
 import pandas as pd
 import requests
 import telegram
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from sqlalchemy import text
 
 from plutous import database as db
@@ -27,24 +27,29 @@ class BaseAlertConfig(BaseModel):
     frequency: str
     lookback: int
     exchange: Exchange
-    whitelist_symbols: list[str] = []
-    blacklist_symbols: list[str] = []
-    discord_webhooks: list[str] | str = []
-    telegram_config: list[dict[str, str]] | str = []
-    filters: list[str] | str = []
+    whitelist_symbols: list[str] = Field(default_factory=list)
+    blacklist_symbols: list[str] = Field(default_factory=list)
+    discord_webhooks: dict[str, str] = Field(default_factory=dict)
+    discord_mentions: dict[str, list[str]] = Field(default_factory=dict)
+    telegram_config: dict[str, dict[str, str]] = Field(default_factory=dict)
+    filters: list[str] = Field(default_factory=list)
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        if isinstance(self.whitelist_symbols, str):
-            self.whitelist_symbols = json.loads(self.whitelist_symbols)
-        if isinstance(self.blacklist_symbols, str):
-            self.blacklist_symbols = json.loads(self.blacklist_symbols)
-        if isinstance(self.discord_webhooks, str):
-            self.discord_webhooks = json.loads(self.discord_webhooks)
-        if isinstance(self.telegram_config, str):
-            self.telegram_config = json.loads(self.telegram_config)
-        if isinstance(self.filters, str):
-            self.filters = json.loads(self.filters)
+    @validator(
+        "whitelist_symbols",
+        "blacklist_symbols",
+        "discord_webhooks",
+        "discord_mentions",
+        "telegram_config",
+        "filters",
+        pre=True,
+    )
+    def parse_json(cls, value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+        return value
 
 
 class BaseAlert(ABC):
@@ -89,10 +94,16 @@ class BaseAlert(ABC):
         pass
 
     def send_discord_message(self, message: str):
-        for webhook in self.config.discord_webhooks:
-            requests.post(webhook, json={"content": message})
+        for tag, webhook in self.config.discord_webhooks.items():
+            mention_list = self.config.discord_mentions.get(tag, [])
+            mentions = ""
+            if mention_list:
+                mentions = " ".join(mention_list) + "\n"
+            msg = message.replace("{{ mentions }}\n", mentions)
+            requests.post(webhook, json={"content": msg})
 
     def send_telegram_message(self, message: str):
-        for telegram_config in self.config.telegram_config:
+        msg = message.replace("{{ mentions }}\n", "")
+        for telegram_config in self.config.telegram_config.values():
             bot = telegram.Bot(token=telegram_config["token"])
-            bot.sendMessage(chat_id=telegram_config["chat_id"], text=message)
+            bot.sendMessage(chat_id=telegram_config["chat_id"], text=msg)

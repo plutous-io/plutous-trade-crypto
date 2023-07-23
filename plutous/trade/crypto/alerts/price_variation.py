@@ -1,4 +1,3 @@
-
 from plutous.trade.crypto.models import OHLCV
 
 from .base import BaseAlert, BaseAlertConfig
@@ -36,7 +35,7 @@ class PriceVariationAlert(BaseAlert):
                 frequnecy = "hr"
                 interval = interval // 60
 
-        msg = f"**Price Variation Alert ({self.config.exchange.value}) (last {interval}{frequnecy})** \n"
+        msg = f"**Price Variation Alert ({self.config.exchange.value}) (last {interval}{frequnecy})**\n"
         msg += "\n".join([f"{sbl}: {pct:.2%}" for sbl, pct in df_latest.items()])
 
         self.send_discord_message(msg)

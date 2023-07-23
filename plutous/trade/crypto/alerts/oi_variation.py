@@ -7,7 +7,6 @@ from .base import BaseAlert, BaseAlertConfig
 
 class OIVariationAlertConfig(BaseAlertConfig):
     threshold: float = 0.1
-    dc_mentions: list[str] | str = []
 
 
 class OIVariationAlert(BaseAlert):
@@ -19,9 +18,6 @@ class OIVariationAlert(BaseAlert):
         base_alert_config = BaseAlertConfig(**config.dict())
         base_alert_config.lookback += 1
         super().__init__(base_alert_config)
-        if isinstance(config.dc_mentions, str):
-            config.dc_mentions = json.loads(config.dc_mentions)
-        self.config = config
 
     def run(self):
         if self.config.lookback < 2:
@@ -47,18 +43,17 @@ class OIVariationAlert(BaseAlert):
                 frequnecy = "hr"
                 interval = interval // 60
 
-        msg = f"**OI Variation Alert ({self.config.exchange.value}) (last {interval}{frequnecy})** \n"
+        msg = f"**OI Variation Alert ({self.config.exchange.value}) (last {interval}{frequnecy})**\n"
         symbols = []
         mention = False
         for symbol, pct in df_latest.items():
             if symbol not in df_last:
                 symbol = f"**{symbol}**"
-                if self.config.dc_mentions:
-                    mention = True
+                mention = True
             symbols.append((symbol, pct))
 
         if mention:
-            msg += " ".join(self.config.dc_mentions) + " \n"
+            msg += "{{ mentions }}\n"
         msg += "\n".join([f"{sbl}: {pct:.2%}" for sbl, pct in symbols])
 
         self.send_discord_message(msg)
