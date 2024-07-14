@@ -21,13 +21,11 @@ class BaseCollector(ABC):
         exchange: Exchange,
         symbols: list[str] | None = None,
         rate_limit: bool = False,
-        **kwargs,
     ):
         self._exchange = exchange
         params = {}
         if not rate_limit:
             params["rateLimit"] = rate_limit
-        params.update(kwargs)
         self.exchange: ex.Exchange = getattr(ex, exchange.value)(params)
         self.symbols = symbols
 

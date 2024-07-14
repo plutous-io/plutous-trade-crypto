@@ -56,10 +56,7 @@ def backfill(
         "ignore_unknown_options": True,
     }
 )
-def alert(
-    alert_type: str,
-    ctx: Context,
-):
+def alert(alert_type: str, ctx: Context):
     """Alert on data from exchange."""
     alert_cls: Type[alerts.BaseAlert] = getattr(alerts, f"{alert_type}Alert")
     alert_config_cls: Type[alerts.BaseAlertConfig] = getattr(

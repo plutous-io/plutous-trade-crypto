@@ -6,6 +6,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from plutous import database as db
+from plutous.enums import Exchange
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import Orderbook
 
@@ -16,10 +17,16 @@ class OrderbookCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.OPEN_INTEREST
     TABLE: Type[Orderbook] = Orderbook
 
-    def run(self):
-        asyncio.run(self._run())
+    def __init__(
+        self,
+        exchange: Exchange,
+        symbols: list[str] | None = None,
+        rate_limit: bool = False,
+    ):
+        super().__init__(exchange, symbols, rate_limit)
+        self.exchange.options["watchOrderBookLimit"] = 5000  # type: ignore
 
-    async def _run(self):
+    async def collect(self):
         active_symbols = await self.fetch_active_symbols()
         coroutines = [
             self.exchange.watch_order_book(symbol) for symbol in active_symbols
