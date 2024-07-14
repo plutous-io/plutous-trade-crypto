@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from plutous.trade.enums import Action, PositionSide
 
 from .base import BaseBot, BaseBotConfig
@@ -13,9 +15,9 @@ class WebhookBot(BaseBot):
     async def _run(
         self,
         action: Action,
-        quantity: float,
+        quantity: Decimal,
         prev_position_side: PositionSide,
-        prev_position_size: float,
+        prev_position_size: Decimal,
     ):
         await self.exchange.load_markets()
         if ((prev_position_side == PositionSide.LONG) & (action == Action.SELL)) | (
@@ -24,7 +26,7 @@ class WebhookBot(BaseBot):
             close_quantity = quantity
             if quantity >= prev_position_size:
                 close_quantity = None
-            
+
             await super().close_position(
                 symbol=self.config.symbol,
                 side=prev_position_side,
@@ -44,7 +46,7 @@ class WebhookBot(BaseBot):
     async def close_position(
         self,
         side: PositionSide,
-        quantity: float | None = None,
+        quantity: Decimal | None = None,
     ):
         await self.exchange.load_markets()
         if (self.config.symbol, side) in self.positions:

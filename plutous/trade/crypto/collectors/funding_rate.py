@@ -1,4 +1,5 @@
 from typing import Any
+
 import pandas as pd
 
 from plutous import database as db
@@ -58,7 +59,7 @@ class FundingRateCollector(BaseCollector):
         self,
         start_time: int,
         end_time: int | None = None,
-        limit: int = 100,
+        limit: int | None = None,
         missing_only: bool = False,
     ):
         """Actually uses forward fill"""

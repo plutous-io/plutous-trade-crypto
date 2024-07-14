@@ -16,12 +16,20 @@ class BaseCollector(ABC):
     COLLECTOR_TYPE: CollectorType
     TABLE: Type[Base]
 
-    def __init__(self, exchange: Exchange, rate_limit: bool = False):
+    def __init__(
+        self,
+        exchange: Exchange,
+        symbols: list[str] | None = None,
+        rate_limit: bool = False,
+        **kwargs,
+    ):
         self._exchange = exchange
         params = {}
         if not rate_limit:
             params["rateLimit"] = rate_limit
+        params.update(kwargs)
         self.exchange: ex.Exchange = getattr(ex, exchange.value)(params)
+        self.symbols = symbols
 
     async def collect(self):
         data = await self.fetch_data()
@@ -34,7 +42,7 @@ class BaseCollector(ABC):
         self,
         since: datetime,
         duration: timedelta | None = None,
-        limit: int = 100,
+        limit: int | None = None,
         missing_only: bool = False,
     ):
         start_time = int(since.timestamp()) * 1000
@@ -55,7 +63,9 @@ class BaseCollector(ABC):
             session.commit()
         await self.exchange.close()
 
-    async def fetch_active_symbols(self):
+    async def fetch_active_symbols(self) -> list[str]:
+        if self.symbols:
+            return self.symbols
         markets: dict[str, dict[str, Any]] = await self.exchange.load_markets()
         return [symbol for symbol, market in markets.items() if market["active"]]
 
@@ -68,7 +78,7 @@ class BaseCollector(ABC):
         self,
         start_time: int,
         end_time: int | None = None,
-        limit: int = 100,
+        limit: int | None = None,
         missing_only: bool = False,
     ) -> list[Base]:
         pass
@@ -96,7 +106,7 @@ class BaseCollector(ABC):
     def round_milliseconds(
         self,
         timestamp: int,
-        multipler: int = 300000,
+        multiplier: int = 300000,
         offset: int = 0,
     ) -> int:
-        return ((timestamp // multipler) + offset) * multipler
+        return ((timestamp // multiplier) + offset) * multiplier

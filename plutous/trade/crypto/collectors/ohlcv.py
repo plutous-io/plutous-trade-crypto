@@ -45,7 +45,7 @@ class OHLCVCollector(BaseCollector):
         self,
         start_time: int,
         end_time: int | None = None,
-        limit: int = 100,
+        limit: int | None = None,
         missing_only: bool = False,
     ):
         params = {

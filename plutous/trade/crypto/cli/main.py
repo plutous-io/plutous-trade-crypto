@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from typing import Type
+from typing import Optional, Type
 
 import pandas as pd
 from typer import Context, Option, Typer
@@ -28,7 +28,7 @@ def collect(
     rate_limit: Annotated[bool, Option()] = False,
 ):
     """Collect data from exchange."""
-    collector = COLLECTORS[collector_type](exchange, rate_limit)
+    collector = COLLECTORS[collector_type](exchange, rate_limit=rate_limit)
     asyncio.run(collector.collect())
 
 
@@ -38,12 +38,16 @@ def backfill(
     collector_type: CollectorType,
     rate_limit: Annotated[bool, Option()] = False,
     lookback: Annotated[str, Option()] = "1h",
+    duration: Annotated[Optional[str], Option()] = None,
 ):
     """Backfill last 1-hour data from exchange."""
-    collector = COLLECTORS[collector_type](exchange, rate_limit)
+    collector = COLLECTORS[collector_type](exchange, rate_limit=rate_limit)
 
     since = datetime.now() - pd.Timedelta(lookback).to_pytimedelta()
-    asyncio.run(collector.backfill(since))
+    d = None
+    if duration:
+        d = pd.Timedelta(duration).to_pytimedelta()
+    asyncio.run(collector.backfill(since, d))
 
 
 @app.command(
