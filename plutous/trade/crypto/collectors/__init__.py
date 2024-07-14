@@ -14,4 +14,5 @@ COLLECTORS: dict[CollectorType, Type[BaseCollector]] = {
     CollectorType.LONG_SHORT_RATIO: LongShortRatioCollector,
     CollectorType.OHLCV: OHLCVCollector,
     CollectorType.OPEN_INTEREST: OpenInterestCollector,
+    CollectorType.ORDERBOOK: OrderbookCollector,
 }

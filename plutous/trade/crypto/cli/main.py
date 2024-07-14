@@ -25,10 +25,13 @@ for a in apps:
 def collect(
     exchange: Exchange,
     collector_type: CollectorType,
+    symbols: Annotated[list[str], Option()] = [],
     rate_limit: Annotated[bool, Option()] = False,
 ):
     """Collect data from exchange."""
-    collector = COLLECTORS[collector_type](exchange, rate_limit=rate_limit)
+    if not symbols:
+        symbols = None
+    collector = COLLECTORS[collector_type](exchange, symbols, rate_limit=rate_limit)
     asyncio.run(collector.collect())
 
 
