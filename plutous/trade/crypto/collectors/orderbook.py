@@ -60,7 +60,7 @@ class OrderbookCollector(BaseCollector):
                     raise TimeoutError("Orderbook is outdated")
 
                 bids = np.array(orderbook["bids"])
-                asks = np.array(orderbook["bids"])
+                asks = np.array(orderbook["asks"])
                 timestamp = self.round_milliseconds(orderbook["timestamp"], 60 * 1000)
                 ob_data.append(
                     Orderbook(
@@ -70,14 +70,30 @@ class OrderbookCollector(BaseCollector):
                         datetime=self.exchange.iso8601(timestamp),
                         bids=orderbook["bids"],
                         asks=orderbook["asks"],
-                        bids_sum_5=bids[bids[:, 0] > (bids[0, 0] * 0.95), 1].sum(),
-                        bids_sum_10=bids[bids[:, 0] > (bids[0, 0] * 0.90), 1].sum(),
-                        bids_sum_15=bids[bids[:, 0] > (bids[0, 0] * 0.85), 1].sum(),
-                        bids_sum_20=bids[bids[:, 0] > (bids[0, 0] * 0.80), 1].sum(),
-                        asks_sum_5=asks[asks[:, 0] < (asks[0, 0] * 1.05), 1].sum(),
-                        asks_sum_10=asks[asks[:, 0] < (asks[0, 0] * 1.10), 1].sum(),
-                        asks_sum_15=asks[asks[:, 0] < (asks[0, 0] * 1.15), 1].sum(),
-                        asks_sum_20=asks[asks[:, 0] < (asks[0, 0] * 1.20), 1].sum(),
+                        bids_sum_5=float(
+                            bids[bids[:, 0] > (bids[0, 0] * 0.95), 1].sum()
+                        ),
+                        bids_sum_10=float(
+                            bids[bids[:, 0] > (bids[0, 0] * 0.90), 1].sum()
+                        ),
+                        bids_sum_15=float(
+                            bids[bids[:, 0] > (bids[0, 0] * 0.85), 1].sum()
+                        ),
+                        bids_sum_20=float(
+                            bids[bids[:, 0] > (bids[0, 0] * 0.80), 1].sum()
+                        ),
+                        asks_sum_5=float(
+                            asks[asks[:, 0] < (asks[0, 0] * 1.05), 1].sum()
+                        ),
+                        asks_sum_10=float(
+                            asks[asks[:, 0] < (asks[0, 0] * 1.10), 1].sum()
+                        ),
+                        asks_sum_15=float(
+                            asks[asks[:, 0] < (asks[0, 0] * 1.15), 1].sum()
+                        ),
+                        asks_sum_20=float(
+                            asks[asks[:, 0] < (asks[0, 0] * 1.20), 1].sum()
+                        ),
                     )
                 )
             with db.Session() as session:
