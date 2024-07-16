@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from plutous import database as db
 from plutous.enums import Exchange
 from plutous.trade.crypto.enums import CollectorType
-from plutous.trade.crypto.models import Orderbook
+from plutous.trade.crypto.models import BidAskSum, Orderbook
 
 from .base import BaseCollector
 
@@ -52,6 +52,7 @@ class OrderbookCollector(BaseCollector):
 
         while True:
             ob_data = []
+            bas_data = []
             for symbol, orderbook in self.exchange.orderbooks.items():
                 if (
                     orderbook["timestamp"]
@@ -62,6 +63,21 @@ class OrderbookCollector(BaseCollector):
                 bids = np.array(orderbook["bids"])
                 asks = np.array(orderbook["asks"])
                 timestamp = self.round_milliseconds(orderbook["timestamp"], 60 * 1000)
+                bas = BidAskSum(
+                    exchange=self._exchange,
+                    symbol=symbol,
+                    timestamp=timestamp,
+                    datetime=self.exchange.iso8601(timestamp),
+                    bids_sum_5=float(bids[bids[:, 0] > (bids[0, 0] * 0.95), 1].sum()),
+                    bids_sum_10=float(bids[bids[:, 0] > (bids[0, 0] * 0.90), 1].sum()),
+                    bids_sum_15=float(bids[bids[:, 0] > (bids[0, 0] * 0.85), 1].sum()),
+                    bids_sum_20=float(bids[bids[:, 0] > (bids[0, 0] * 0.80), 1].sum()),
+                    asks_sum_5=float(asks[asks[:, 0] < (asks[0, 0] * 1.05), 1].sum()),
+                    asks_sum_10=float(asks[asks[:, 0] < (asks[0, 0] * 1.10), 1].sum()),
+                    asks_sum_15=float(asks[asks[:, 0] < (asks[0, 0] * 1.15), 1].sum()),
+                    asks_sum_20=float(asks[asks[:, 0] < (asks[0, 0] * 1.20), 1].sum()),
+                )
+                bas_data.append(bas)
                 ob_data.append(
                     Orderbook(
                         exchange=self._exchange,
@@ -70,37 +86,14 @@ class OrderbookCollector(BaseCollector):
                         datetime=self.exchange.iso8601(timestamp),
                         bids=orderbook["bids"],
                         asks=orderbook["asks"],
-                        bids_sum_5=float(
-                            bids[bids[:, 0] > (bids[0, 0] * 0.95), 1].sum()
-                        ),
-                        bids_sum_10=float(
-                            bids[bids[:, 0] > (bids[0, 0] * 0.90), 1].sum()
-                        ),
-                        bids_sum_15=float(
-                            bids[bids[:, 0] > (bids[0, 0] * 0.85), 1].sum()
-                        ),
-                        bids_sum_20=float(
-                            bids[bids[:, 0] > (bids[0, 0] * 0.80), 1].sum()
-                        ),
-                        asks_sum_5=float(
-                            asks[asks[:, 0] < (asks[0, 0] * 1.05), 1].sum()
-                        ),
-                        asks_sum_10=float(
-                            asks[asks[:, 0] < (asks[0, 0] * 1.10), 1].sum()
-                        ),
-                        asks_sum_15=float(
-                            asks[asks[:, 0] < (asks[0, 0] * 1.15), 1].sum()
-                        ),
-                        asks_sum_20=float(
-                            asks[asks[:, 0] < (asks[0, 0] * 1.20), 1].sum()
-                        ),
                     )
                 )
             with db.Session() as session:
-                session.add_all(ob_data)
+                self._insert(ob_data, session, Orderbook)
+                self._insert(bas_data, session, BidAskSum)
                 session.commit()
 
-            await asyncio.sleep(60)
+            await asyncio.sleep(30)
 
     def fetch_orderbook_snapshot(
         self,

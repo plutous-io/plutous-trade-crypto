@@ -1,4 +1,5 @@
 from datetime import datetime as dt
+from typing import Literal
 
 import pandas as pd
 from loguru import logger
@@ -23,7 +24,13 @@ class Enum(BaseEnum):
     schema = "crypto"
 
 
+SupportedFreq = Literal["5m", "10m", "15m", "30m", "1h"]
+
+
 class Base(DeclarativeBase, BaseMixin):
+    __main_columns__: list[str]
+    __default_frequency__: SupportedFreq = "5m"
+
     exchange: Mapped[Exchange] = mapped_column(Enum(Exchange, schema="public"))
     symbol: Mapped[str]
     timestamp: Mapped[int] = mapped_column(BIGINT)
@@ -57,25 +64,27 @@ class Base(DeclarativeBase, BaseMixin):
         conn: Connection,
         exchange: Exchange,
         symbols: list[str],
-        frequency: str,
+        frequency: SupportedFreq,
         since: int,
+        columns: list[str] = [],
         until: int | None = None,
         limit: int | None = None,
         filters: list[ColumnExpressionArgument[bool]] | list[TextClause] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
-        frequency = frequency.lower()
-        miniute_interval = 60 if frequency == "1h" else int(frequency[:-1])
+        cols = columns or cls.__main_columns__
+        freq = frequency.lower()
+        miniute_interval = 60 if freq == "1h" else int(freq[:-1])
         dt = func.date_trunc("hour", cls.datetime) + func.floor(
             func.extract("minute", cls.datetime) / miniute_interval
-        ) * text(f"'{frequency}'::interval")
+        ) * text(f"'{freq}'::interval")
         sql = (
             select(
                 cls.timestamp,
                 dt.label("datetime"),
                 cls.exchange,
                 cls.symbol,
-                getattr(cls, cls.__main_column__),
+                *[getattr(cls, col) for col in cols],
             )
             .where(
                 cls.timestamp >= since,
@@ -83,7 +92,7 @@ class Base(DeclarativeBase, BaseMixin):
             )
             .order_by(cls.timestamp.asc())
         )
-        match frequency:
+        match freq:
             case "1h":
                 sql = sql.where(func.extract("minute", cls.datetime) == 55)
             case "30m":
@@ -98,21 +107,20 @@ class Base(DeclarativeBase, BaseMixin):
                 )
             case "5m":
                 pass
+            case _:
+                raise ValueError(f"Unsupported frequency: {freq}")
 
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
-
         if until:
             sql = sql.where(cls.timestamp < until)
-
         if filters:
             sql = sql.where(*filters)
-
         if limit:
             sql = sql.limit(limit)
 
         return pd.read_sql(sql, conn).pivot(
             index="datetime",
             columns="symbol",
-            values=cls.__main_column__,
+            values=cols,
         )

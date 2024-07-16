@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, declared_attr
 
 from plutous.enums import Exchange
 
-from .base import Base
+from .base import Base, SupportedFreq
 
 
 class OHLCV(Base):
@@ -25,17 +25,19 @@ class OHLCV(Base):
         conn: Connection,
         exchange: Exchange,
         symbols: list[str],
-        frequency: str,
+        frequency: SupportedFreq,
         since: int,
+        columns: list[str] = [],
         until: int | None = None,
+        limit: int | None = None,
         filters: list[ColumnExpressionArgument[bool]] = [],
     ) -> pd.DataFrame:
         logger.info(f"Loading {cls.__name__} data ")
-        frequency = frequency.lower()
-        miniute_interval = 60 if frequency == "1h" else int(frequency[:-1])
+        freq = frequency.lower()
+        miniute_interval = 60 if freq == "1h" else int(freq[:-1])
         dt = func.date_trunc("hour", cls.datetime) + func.floor(
             func.extract("minute", cls.datetime) / miniute_interval
-        ) * text(f"'{frequency}'::interval")
+        ) * text(f"'{freq}'::interval")
         sql = (
             select(
                 cls.symbol,
@@ -67,12 +69,12 @@ class OHLCV(Base):
         )
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
-
         if until:
             sql = sql.where(cls.timestamp < until)
-
         if filters:
             sql = sql.where(*filters)
+        if limit:
+            sql = sql.limit(limit)
 
         df = pd.read_sql(sql, conn).pivot(
             index="datetime",

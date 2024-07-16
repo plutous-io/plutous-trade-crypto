@@ -1,4 +1,5 @@
 from .base import Base
+from .bid_ask_sum import BidAskSum
 from .funding_rate import FundingRate
 from .funding_settlement import FundingSettlement
 from .long_short_ratio import LongShortRatio
