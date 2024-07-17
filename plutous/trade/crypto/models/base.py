@@ -59,6 +59,27 @@ class Base(DeclarativeBase, BaseMixin):
         )
 
     @classmethod
+    def _filter_by_frequency(cls, sql, freq: str):
+        match freq:
+            case "1h":
+                sql = sql.where(func.extract("minute", cls.datetime) == 55)
+            case "30m":
+                sql = sql.where(func.extract("minute", cls.datetime).in_([25, 55]))
+            case "15m":
+                sql = sql.where(
+                    func.extract("minute", cls.datetime).in_([10, 25, 40, 55])
+                )
+            case "10m":
+                sql = sql.where(
+                    func.extract("minute", cls.datetime).in_([5, 15, 25, 35, 45, 55])
+                )
+            case "5m":
+                pass
+            case _:
+                raise ValueError(f"Unsupported frequency: {freq}")
+        return sql
+
+    @classmethod
     def query(
         cls,
         conn: Connection,
@@ -92,23 +113,7 @@ class Base(DeclarativeBase, BaseMixin):
             )
             .order_by(cls.timestamp.asc())
         )
-        match freq:
-            case "1h":
-                sql = sql.where(func.extract("minute", cls.datetime) == 55)
-            case "30m":
-                sql = sql.where(func.extract("minute", cls.datetime).in_([25, 55]))
-            case "15m":
-                sql = sql.where(
-                    func.extract("minute", cls.datetime).in_([10, 25, 40, 55])
-                )
-            case "10m":
-                sql = sql.where(
-                    func.extract("minute", cls.datetime).in_([5, 15, 25, 35, 45, 55])
-                )
-            case "5m":
-                pass
-            case _:
-                raise ValueError(f"Unsupported frequency: {freq}")
+        sql = cls._filter_by_frequency(sql, freq)
 
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))
@@ -119,8 +124,11 @@ class Base(DeclarativeBase, BaseMixin):
         if limit:
             sql = sql.limit(limit)
 
-        return pd.read_sql(sql, conn).pivot(
+        df = pd.read_sql(sql, conn).pivot(
             index="datetime",
             columns="symbol",
             values=cols,
         )
+
+        df.columns = df.columns.swaplevel(0, 1)
+        return df

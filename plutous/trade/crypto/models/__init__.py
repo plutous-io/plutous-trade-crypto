@@ -1,4 +1,4 @@
-from .base import Base
+from .base import Base, SupportedFreq
 from .bid_ask_sum import BidAskSum
 from .funding_rate import FundingRate
 from .funding_settlement import FundingSettlement

@@ -66,6 +66,7 @@ class OHLCV(Base):
                 cls.timestamp >= since,
                 cls.exchange == exchange,
             )
+            .order_by(cls.timestamp.asc())
         )
         if symbols:
             sql = sql.where(cls.symbol.in_(symbols))

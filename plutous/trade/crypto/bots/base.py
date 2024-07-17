@@ -8,6 +8,7 @@ from typing import Any, Literal
 import requests
 import sentry_sdk
 from ccxt.base.errors import OrderNotFound
+from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy.orm import joinedload
 
@@ -168,6 +169,7 @@ class BaseBot(ABC):
             msg.append(self.config.open_position_msg)
 
         self.send_discord_message("\n".join(msg))
+        logger.info("\n".join(msg))
 
     async def close_position(
         self,
@@ -255,6 +257,7 @@ class BaseBot(ABC):
         if self.config.close_position_msg:
             msg.append(self.config.close_position_msg)
         self.send_discord_message("\n".join(msg))
+        logger.info("\n".join(msg))
 
     async def create_market_order(
         self,
