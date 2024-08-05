@@ -14,7 +14,7 @@ from .base import BaseCollector
 
 
 class OrderbookCollector(BaseCollector):
-    COLLECTOR_TYPE = CollectorType.OPEN_INTEREST
+    COLLECTOR_TYPE = CollectorType.ORDERBOOK
     TABLE: Type[Orderbook] = Orderbook
 
     def __init__(

@@ -208,6 +208,7 @@ class BaseBot(ABC):
             ]
 
         total_realized_pnl = 0
+        pre_allocated_capital = self.bot.allocated_capital
         for t in trades:
             price = Decimal(str(t["price"]))
             quantity = Decimal(str(t["amount"]))
@@ -241,6 +242,9 @@ class BaseBot(ABC):
             if self.bot.accumulate:
                 self.bot.allocated_capital += realized_pnl
 
+        if position.closed_at is not None:
+            del self.positions[(symbol, side)]
+
         self.session.commit()
 
         q = sum([t["amount"] for t in trades])
@@ -253,6 +257,7 @@ class BaseBot(ABC):
             f"`price: {p}`",
             f"`quantity: {q}`",
             f"`realized_pnl: {total_realized_pnl}`",
+            f"`realized_pnl(%): {total_realized_pnl / pre_allocated_capital * 100}`",
         ]
         if self.config.close_position_msg:
             msg.append(self.config.close_position_msg)
