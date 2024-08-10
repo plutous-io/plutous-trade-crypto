@@ -10,6 +10,7 @@ from plutous.trade.crypto.exchanges import (
     Huobi,
     Kucoin,
     KucoinFutures,
+    Mexc,
     Okx,
     Phemex,
     Woo,
@@ -29,3 +30,4 @@ class Exchange(Enum):
     OKX = Okx
     PHEMEX = Phemex
     WOO = Woo
+    MEXC = Mexc
