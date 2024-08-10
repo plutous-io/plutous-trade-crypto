@@ -13,7 +13,7 @@ class OIVariationAlert(BaseAlert):
     config: OIVariationAlertConfig
 
     def __init__(self, config: OIVariationAlertConfig):
-        base_alert_config = BaseAlertConfig(**config.dict())
+        base_alert_config = BaseAlertConfig(**config.model_dump())
         base_alert_config.lookback += 1
         super().__init__(base_alert_config)
         self.config = config
