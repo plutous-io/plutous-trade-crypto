@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "plutous-trade-crypto"
-version = "0.0.69"
+version = "0.0.70"
 description = "Plutous Crypto Trading Library"
 packages = [{include = "plutous"}]
 authors = ["Cheun Hong <cheunhong@plutous.io>"]
