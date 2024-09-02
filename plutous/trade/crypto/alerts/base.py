@@ -7,7 +7,7 @@ from typing import Type
 import pandas as pd
 import requests
 import telegram
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from plutous import database as db
@@ -34,14 +34,14 @@ class BaseAlertConfig(BaseModel):
     telegram_config: dict[str, dict[str, str]] = Field(default_factory=dict)
     filters: list[str] = Field(default_factory=list)
 
-    @validator(
+    @field_validator(
         "whitelist_symbols",
         "blacklist_symbols",
         "discord_webhooks",
         "discord_mentions",
         "telegram_config",
         "filters",
-        pre=True,
+        mode="before",
     )
     def parse_json(cls, value):
         if isinstance(value, str):

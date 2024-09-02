@@ -281,10 +281,7 @@ class BaseBot(ABC):
             params=params,
         )
         await asyncio.sleep(0.5)
-        trades = await self.exchange.fetch_my_trades(
-            symbol=symbol,
-            params={"orderId": order["id"]},
-        )
+        trades = await self.exchange.fetch_order_trades(order["id"], symbol=symbol)
         return trades
 
     async def create_limit_chasing_order(

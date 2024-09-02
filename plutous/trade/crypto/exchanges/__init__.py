@@ -29,4 +29,5 @@ Exchange = Union[
     Phemex,
     Upbit,
     Woo,
+    Mexc,
 ]
