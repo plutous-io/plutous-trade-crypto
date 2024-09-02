@@ -45,6 +45,9 @@ class PriceDiffAlert(BaseAlert):
             if self.config.min_threshold < diff_percent < self.config.max_threshold:
                 symbols.append((ticker, diff_percent))
 
+        if not symbols:
+            return
+
         if mention:
             msg += "{{ mentions }}\n"
         msg += "\n".join([f"{sbl}: {pct:.2%}" for sbl, pct in symbols])
