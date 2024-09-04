@@ -6,8 +6,8 @@ from .base import BaseAlert, BaseAlertConfig
 
 
 class PriceDiffAlertConfig(BaseAlertConfig):
-    min_threshold: float = 0.5
-    max_threshold: float = 10
+    min_threshold: float = 0.005
+    max_threshold: float = 0.1
 
 
 class PriceDiffAlert(BaseAlert):
@@ -39,13 +39,12 @@ class PriceDiffAlert(BaseAlert):
             if spot["quoteVolume"] < 200_000:
                 continue
 
-            diff_percent = (
-                (swap["bid"] - spot["ask"]) / (swap["bid"] + spot["ask"])
-            ) * 100
+            diff_percent = (swap["bid"] - spot["ask"]) / (swap["bid"] + spot["ask"])
             if self.config.min_threshold < diff_percent < self.config.max_threshold:
                 symbols.append((ticker, diff_percent))
 
         if not symbols:
+            await self.exchange.close()
             return
 
         if mention:
@@ -54,3 +53,5 @@ class PriceDiffAlert(BaseAlert):
 
         self.send_discord_message(msg)
         self.send_telegram_message(msg)
+
+        await self.exchange.close()
