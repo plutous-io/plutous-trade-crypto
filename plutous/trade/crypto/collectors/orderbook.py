@@ -29,7 +29,8 @@ class OrderbookCollector(BaseCollector):
     async def collect(self):
         active_symbols = await self.fetch_active_symbols()
         coroutines = [
-            self.exchange.watch_order_book(symbol) for symbol in active_symbols
+            self.exchange.watch_order_book_for_symbols(active_symbols),
+            self.exchange.watch_tickers(active_symbols),
         ]
         await asyncio.gather(*coroutines)
         await asyncio.sleep(1)
@@ -40,15 +41,11 @@ class OrderbookCollector(BaseCollector):
         # Fetch the last snapshot of the orderbook and update miss prices
         with db.Session() as session:
             orderbook_snapshot = self.fetch_orderbook_snapshot(active_symbols, session)
+
         for symbol, snapshot in orderbook_snapshot.items():
-            bids = self.exchange.orderbooks[symbol]["bids"]
-            asks = self.exchange.orderbooks[symbol]["asks"]
-            for price, volume in snapshot["bids"]:
-                if -1 * price not in bids._index:
-                    bids.store(price, volume)
-            for price, volume in snapshot["asks"]:
-                if price not in asks._index:
-                    asks.store(price, volume)
+            for side in ["bids", "asks"]:
+                for price, volume in self.exchange.orderbooks[symbol][side]:
+                    snapshot[side].store(price, volume)
 
         while True:
             ob_data = []
@@ -60,8 +57,14 @@ class OrderbookCollector(BaseCollector):
                 ):
                     raise TimeoutError("Orderbook is outdated")
 
-                bids = np.array(orderbook["bids"])
-                asks = np.array(orderbook["asks"])
+                # filter any bid larger than ticke's bid
+                while orderbook["bids"][0][0] > self.exchange.tickers[symbol]["bid"]:
+                    orderbook["bids"].pop(0)
+                # filter any ask smaller than ticker's ask
+                while orderbook["asks"][0][0] < self.exchange.tickers[symbol]["ask"]:
+                    orderbook["asks"].pop(0)
+                bids, asks = np.array(orderbook["bids"]), np.array(orderbook["asks"])
+
                 timestamp = self.round_milliseconds(orderbook["timestamp"], 60 * 1000)
                 bas = BidAskSum(
                     exchange=self._exchange,

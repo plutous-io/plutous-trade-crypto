@@ -18,21 +18,12 @@ class BidAskSum(Base):
 
     @classmethod
     def _filter_by_frequency(cls, sql, freq: str):
-        match freq:
-            case "1h":
-                sql = sql.where(func.extract("minute", cls.datetime) == 0)
-            case "30m":
-                sql = sql.where(func.extract("minute", cls.datetime).in_([0, 30]))
-            case "15m":
-                sql = sql.where(
-                    func.extract("minute", cls.datetime).in_([0, 15, 30, 45])
-                )
-            case "10m":
-                sql = sql.where(
-                    func.extract("minute", cls.datetime).in_([0, 10, 20, 30, 40, 50])
-                )
-            case "5m":
-                pass
-            case _:
-                raise ValueError(f"Unsupported frequency: {freq}")
+        if freq == "1m":
+            return sql
+        if freq == "1h":
+            freq = "60m"
+        steps = int(freq[:-1])
+        sql = sql.where(
+            func.extract("minute", cls.datetime).in_([i for i in range(0, 60, steps)])
+        )
         return sql

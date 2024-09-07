@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "plutous-trade-crypto"
-version = "0.0.71"
+version = "0.0.72"
 description = "Plutous Crypto Trading Library"
 packages = [{include = "plutous"}]
 authors = ["Cheun Hong <cheunhong@plutous.io>"]
@@ -15,7 +15,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
-ccxt = ">=2.4.24 <4.3.71"
+ccxt = ">=2.4.24"
 pandas = ">=1.5.2"
 plutous-trade = ">=0.0.1"
 python-telegram-bot = "13.4"

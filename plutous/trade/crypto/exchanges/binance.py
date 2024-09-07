@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from ccxt.base.errors import BadSymbol, NotSupported, BadRequest
+from ccxt.base.errors import ArgumentsRequired, BadRequest, BadSymbol, NotSupported
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
 from plutous.trade.crypto.utils.paginate import paginate
@@ -251,9 +251,9 @@ class BinanceBase(binance):
         if limit is not None:
             request["limit"] = limit
         if income_type is not None:
-            request[
-                "incomeType"
-            ] = income_type  # "TRANSFER"，"WELCOME_BONUS", "REALIZED_PNL"，"FUNDING_FEE", "COMMISSION" and "INSURANCE_CLEAR"
+            request["incomeType"] = (
+                income_type  # "TRANSFER"，"WELCOME_BONUS", "REALIZED_PNL"，"FUNDING_FEE", "COMMISSION" and "INSURANCE_CLEAR"
+            )
         defaultType = self.safe_string_2(
             self.options, "fetchIncomes", "defaultType", "future"
         )
@@ -277,6 +277,25 @@ class BinanceBase(binance):
         self, symbol=None, since=None, limit=None, params={}
     ):
         return await self.fetch_incomes(symbol, since, limit, "FUNDING_FEE", params)
+
+    async def fetch_order_trades(
+        self,
+        id: str,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params={},
+    ):
+        if symbol is None:
+            raise ArgumentsRequired(
+                self.id + " fetchOrderTrades() requires a symbol argument"
+            )
+        await self.load_markets()
+        params = self.omit(params, "type")
+        request: dict = {"orderId": id}
+        return await self.fetch_my_trades(
+            symbol, since, limit, self.extend(request, params)
+        )
 
     @paginate(
         max_limit=100,

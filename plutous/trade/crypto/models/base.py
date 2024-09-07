@@ -24,7 +24,7 @@ class Enum(BaseEnum):
     schema = "crypto"
 
 
-SupportedFreq = Literal["5m", "10m", "15m", "30m", "1h"]
+SupportedFreq = Literal["1m", "5m", "10m", "15m", "30m", "1h"]
 
 
 class Base(DeclarativeBase, BaseMixin):
