@@ -7,3 +7,4 @@ class CollectorType(Enum):
     OHLCV = "ohlcv"
     OPEN_INTEREST = "open_interest"
     ORDERBOOK = "orderbook"
+    TAKER_BUY_SELL = "taker_buy_sell"

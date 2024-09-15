@@ -2,12 +2,15 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, Type
 
+import sentry_sdk
+from loguru import logger
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from plutous import database as db
 from plutous.enums import Exchange
 from plutous.trade.crypto import exchanges as ex
+from plutous.trade.crypto.config import config
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import Base
 
@@ -28,6 +31,8 @@ class BaseCollector(ABC):
             params["rateLimit"] = rate_limit
         self.exchange: ex.Exchange = getattr(ex, exchange.value)(params)
         self.symbols = symbols
+
+        sentry_sdk.init(config.sentry_dsn)
 
     async def collect(self):
         data = await self.fetch_data()
@@ -91,6 +96,7 @@ class BaseCollector(ABC):
             return
         if table is None:
             table = self.TABLE
+        logger.info(f"Inserting {len(data)} records into {table.__name__}")
         stmt = insert(table).values([d.dict() for d in data])
         stmt = stmt.on_conflict_do_nothing(
             index_elements=[

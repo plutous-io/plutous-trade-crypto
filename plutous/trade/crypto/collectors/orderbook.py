@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from typing import Type
 
 import numpy as np
+from ccxt.async_support.base.ws.order_book import OrderBook as _Orderbook
+from loguru import logger
 from sqlalchemy.orm import Session
 
 from plutous import database as db
@@ -11,6 +13,8 @@ from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import BidAskSum, Orderbook
 
 from .base import BaseCollector
+
+TIMEOUT = timedelta(minutes=5)
 
 
 class OrderbookCollector(BaseCollector):
@@ -28,43 +32,55 @@ class OrderbookCollector(BaseCollector):
 
     async def collect(self):
         active_symbols = await self.fetch_active_symbols()
-        coroutines = [
-            self.exchange.watch_order_book_for_symbols(active_symbols),
-            self.exchange.watch_tickers(active_symbols),
-        ]
-        await asyncio.gather(*coroutines)
+        await self.exchange.watch_order_book_for_symbols(active_symbols)
         await asyncio.sleep(1)
 
         if self.exchange.orderbooks is None:
-            raise ValueError("No orderbooks found")
+            raise RuntimeError("No orderbooks found")
 
         # Fetch the last snapshot of the orderbook and update miss prices
         with db.Session() as session:
             orderbook_snapshot = self.fetch_orderbook_snapshot(active_symbols, session)
 
+        logger.info(
+            f"Orderbook snapshot fetched for symbols: {orderbook_snapshot.keys()}"
+        )
+
         for symbol, snapshot in orderbook_snapshot.items():
             for side in ["bids", "asks"]:
                 for price, volume in self.exchange.orderbooks[symbol][side]:
                     snapshot[side].store(price, volume)
+                self.exchange.orderbooks[symbol][side] = snapshot[side]
 
         while True:
             ob_data = []
             bas_data = []
+            if set(self.exchange.orderbooks.keys()) != set(active_symbols):
+                logger.error(
+                    f"Active symbols: {active_symbols}, Orderbook symbols: {self.exchange.orderbooks.keys()}"
+                )
+                raise RuntimeError("Active symbols do not match orderbook symbols")
+
             for symbol, orderbook in self.exchange.orderbooks.items():
-                if (
-                    orderbook["timestamp"]
-                    < (datetime.now() - timedelta(minutes=5)).timestamp() * 1000
+                logger.info(f"Processing orderbook for {symbol}")
+
+                while (lastest_bid := orderbook["bids"][0][0]) > (
+                    lastest_ask := orderbook["asks"][0][0]
                 ):
-                    raise TimeoutError("Orderbook is outdated")
+                    ticker = await self.exchange.fetch_ticker(symbol)
+                    logger.info(f"Filtering bid {lastest_bid} > ask {lastest_ask}")
+                    if lastest_bid > ticker["bid"]:
+                        logger.info(
+                            f"Filtering bid {lastest_bid} > ticker bid {ticker['bid']}"
+                        )
+                        orderbook["bids"].store(lastest_bid, 0)
+                    if lastest_ask < ticker["ask"]:
+                        logger.info(
+                            f"Filtering ask {lastest_ask} < ticker ask {ticker['ask']}"
+                        )
+                        orderbook["asks"].store(lastest_ask, 0)
 
-                # filter any bid larger than ticke's bid
-                while orderbook["bids"][0][0] > self.exchange.tickers[symbol]["bid"]:
-                    orderbook["bids"].pop(0)
-                # filter any ask smaller than ticker's ask
-                while orderbook["asks"][0][0] < self.exchange.tickers[symbol]["ask"]:
-                    orderbook["asks"].pop(0)
                 bids, asks = np.array(orderbook["bids"]), np.array(orderbook["asks"])
-
                 timestamp = self.round_milliseconds(orderbook["timestamp"], 60 * 1000)
                 bas = BidAskSum(
                     exchange=self._exchange,
@@ -99,32 +115,25 @@ class OrderbookCollector(BaseCollector):
             await asyncio.sleep(30)
 
     def fetch_orderbook_snapshot(
-        self,
-        symbols: list[str],
-        session: Session,
-    ) -> dict[str, dict[str, list[tuple[float, float]]]]:
+        self, symbols: list[str], session: Session
+    ) -> dict[str, _Orderbook]:
+        logger.info("Fetching orderbook snapshot")
         tb = self.TABLE
         snapshots = (
-            session.query(
-                tb.symbol,
-                tb.bids,
-                tb.asks,
-            )
+            session.query(tb.symbol, tb.bids, tb.asks)
             .distinct(tb.symbol)
             .filter(
                 tb.exchange == self._exchange,
                 tb.symbol.in_(symbols),
-                tb.timestamp >= (datetime.now().timestamp() * 1000) - 10 * 60 * 1000,
+                tb.timestamp
+                >= (datetime.now().timestamp() * 1000) - 10 * 60 * 1000,  # 10 minutes
             )
             .order_by(tb.symbol, tb.timestamp.desc())
             .all()
         )
         return {
             snapshot.symbol: self.exchange.order_book(
-                {
-                    "bids": snapshot.bids,
-                    "asks": snapshot.asks,
-                }
+                {"bids": snapshot.bids, "asks": snapshot.asks}
             )
             for snapshot in snapshots
         }

@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from ccxt.base.errors import ArgumentsRequired, BadRequest, BadSymbol, NotSupported
+from ccxt.base.types import Market
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
 from plutous.trade.crypto.utils.paginate import paginate
@@ -616,6 +618,190 @@ class BinanceBase(binance):
         for i in range(0, len(interests)):
             result.append(self.parse_long_short_ratio(interests[i]))
         return self.filter_by_symbol_since_limit(result, symbol, since, limit)
+
+    async def fetch_taker_buy_sell_volume(
+        self,
+        symbol: str,
+        timeframe="1m",
+        since: int | None = None,
+        limit: int | None = None,
+        params={},
+    ) -> list[dict]:
+        """
+        fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+        :see: https://developers.binance.com/docs/binance-spot-api-docs/rest-api#klinecandlestick-data
+        :see: https://developers.binance.com/docs/derivatives/option/market-data/Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Index-Price-Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Mark-Price-Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Premium-Index-Kline-Data
+        :see: https://developers.binance.com/docs/derivatives/coin-margined-futures/market-data/Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/coin-margined-futures/market-data/Index-Price-Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/coin-margined-futures/market-data/Mark-Price-Kline-Candlestick-Data
+        :see: https://developers.binance.com/docs/derivatives/coin-margined-futures/market-data/Premium-Index-Kline-Data
+        :param str symbol: unified symbol of the market to fetch OHLCV data for
+        :param str timeframe: the length of time each candle represents
+        :param int [since]: timestamp in ms of the earliest candle to fetch
+        :param int [limit]: the maximum amount of candles to fetch
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.price]: "mark" or "index" for mark price and index price candles
+        :param int [params.until]: timestamp in ms of the latest candle to fetch
+        :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [available parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
+        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        """
+        await self.load_markets()
+        paginate = False
+        paginate, params = self.handle_option_and_params(
+            params, "fetchTakerBuySellVolume", "paginate", False
+        )
+        if paginate:
+            return await self.fetch_paginated_call_deterministic(
+                "fetchTakerBuySellVolume",
+                symbol,
+                since,
+                limit,
+                timeframe,
+                params,
+                1000,
+            )
+        market = self.market(symbol)
+        # binance docs say that the default limit 500, max 1500 for futures, max 1000 for spot markets
+        # the reality is that the time range wider than 500 candles won't work right
+        defaultLimit = 500
+        maxLimit = 1500
+        until = self.safe_integer(params, "until")
+        params = self.omit(params, ["price", "until"])
+        if since is not None and until is not None and limit is None:
+            limit = maxLimit
+        limit = defaultLimit if (limit is None) else min(limit, maxLimit)
+        request: dict = {
+            "interval": self.safe_string(self.timeframes, timeframe, timeframe),
+            "limit": limit,
+        }
+        marketId = market["id"]
+        request["symbol"] = marketId
+        # duration = self.parse_timeframe(timeframe)
+        if since is not None:
+            request["startTime"] = since
+            # It didn't work before without the endTime
+            # https://github.com/ccxt/ccxt/issues/8454
+            if market["inverse"]:
+                if since > 0:
+                    duration = self.parse_timeframe(timeframe)
+                    endTime = self.sum(since, limit * duration * 1000 - 1)
+                    now = self.milliseconds()
+                    request["endTime"] = min(now, endTime)
+        if until is not None:
+            request["endTime"] = until
+        response = None
+        if market["option"]:
+            response = await self.eapiPublicGetKlines(self.extend(request, params))
+        elif market["linear"]:
+            response = await self.fapiPublicGetKlines(self.extend(request, params))
+        elif market["inverse"]:
+            response = await self.dapiPublicGetKlines(self.extend(request, params))
+        else:
+            response = await self.publicGetKlines(self.extend(request, params))
+        #
+        #     [
+        #         [1591478520000,"0.02501300","0.02501800","0.02500000","0.02500000","22.19000000",1591478579999,"0.55490906",40,"10.92900000","0.27336462","0"],
+        #         [1591478580000,"0.02499600","0.02500900","0.02499400","0.02500300","21.34700000",1591478639999,"0.53370468",24,"7.53800000","0.18850725","0"],
+        #         [1591478640000,"0.02500800","0.02501100","0.02500300","0.02500800","154.14200000",1591478699999,"3.85405839",97,"5.32300000","0.13312641","0"],
+        #     ]
+        #
+        # options(eapi)
+        #
+        #     [
+        #         {
+        #             "open": "32.2",
+        #             "high": "32.2",
+        #             "low": "32.2",
+        #             "close": "32.2",
+        #             "volume": "0",
+        #             "interval": "5m",
+        #             "tradeCount": 0,
+        #             "takerVolume": "0",
+        #             "takerAmount": "0",
+        #             "amount": "0",
+        #             "openTime": 1677096900000,
+        #             "closeTime": 1677097200000
+        #         }
+        #     ]
+        #
+        return self.parse_taker_buy_sell_volumes(
+            response, symbol, market, timeframe, since, limit
+        )
+
+    def parse_taker_buy_sell_volume(
+        self, kline, symbol: str | None = None, market: Market = None
+    ) -> dict:
+        # when api method = publicGetKlines or fapiPublicGetKlines or dapiPublicGetKlines
+        #     [
+        #         1591478520000,  # open time
+        #         "0.02501300",  # open
+        #         "0.02501800",  # high
+        #         "0.02500000",  # low
+        #         "0.02500000",  # close
+        #         "22.19000000",  # volume
+        #         1591478579999,  # close time
+        #         "0.55490906",  # quote asset volume, base asset volume for dapi
+        #         40,            # number of trades
+        #         "10.92900000",  # taker buy base asset volume
+        #         "0.27336462",  # taker buy quote asset volume
+        #         "0"            # ignore
+        #     ]
+        #
+        # options
+        #
+        #     {
+        #         "open": "32.2",
+        #         "high": "32.2",
+        #         "low": "32.2",
+        #         "close": "32.2",
+        #         "volume": "0",
+        #         "interval": "5m",
+        #         "tradeCount": 0,
+        #         "takerVolume": "0",
+        #         "takerAmount": "0",
+        #         "amount": "0",
+        #         "openTime": 1677096900000,
+        #         "closeTime": 1677097200000
+        #     }
+        #
+        inverse = self.safe_bool(market, "inverse")
+        volumeIndex = 7 if inverse else 5
+        takerVolumeIndex = 10 if inverse else 9
+        vol = self.safe_number_2(kline, volumeIndex, "volume")
+        buy_vol = self.safe_number_2(kline, takerVolumeIndex, "volume")
+        ts = self.safe_integer_2(kline, 0, "openTime")
+        sell_vol = None
+        if (vol is not None) and (buy_vol is not None):
+            sell_vol = vol - buy_vol
+
+        return {
+            "symbol": self.safe_symbol(symbol, market),
+            "buyVol": buy_vol,
+            "sellVol": sell_vol,
+            "timestamp": self.safe_integer_2(kline, 0, "openTime"),
+            "datetime": self.iso8601(ts),
+            "info": kline,
+        }
+
+    def parse_taker_buy_sell_volumes(
+        self,
+        klines: list[object],
+        symbol: str | None = None,
+        market: Any = None,
+        timeframe: str = "1m",
+        since: int | None = None,
+        limit: int | None = None,
+        tail: bool = False,
+    ):
+        results = []
+        for i in range(0, len(klines)):
+            results.append(self.parse_taker_buy_sell_volume(klines[i], symbol, market))
+        sorted = self.sort_by(results, "timestamp")
+        return self.filter_by_since_limit(sorted, since, limit, 0, tail)
 
 
 class Binance(BinanceBase):

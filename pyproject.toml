@@ -1,20 +1,20 @@
 [tool.poetry]
 name = "plutous-trade-crypto"
-version = "0.0.72"
+version = "0.0.73"
 description = "Plutous Crypto Trading Library"
 packages = [{include = "plutous"}]
 authors = ["Cheun Hong <cheunhong@plutous.io>"]
 readme = "README.md"
 license="MIT"
 classifiers = [
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.11"
+python = ">=3.11,<3.12"
 ccxt = ">=2.4.24"
 pandas = ">=1.5.2"
 plutous-trade = ">=0.0.1"
