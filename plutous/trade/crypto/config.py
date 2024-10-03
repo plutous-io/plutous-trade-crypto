@@ -1,10 +1,21 @@
+from pydantic import BaseModel
+
 from plutous.config import BaseConfig
+
+
+class CollectorConfig(BaseModel):
+    sentry_dsn: str | None = None
+
+
+class AlertConfig(BaseModel):
+    sentry_dsn: str | None = None
 
 
 class Config(BaseConfig):
     __section__ = "trade/crypto"
 
-    sentry_dsn: str | None = None
+    collector: CollectorConfig
+    alert: AlertConfig
 
 
-config = Config.from_file()
+CONFIG = Config.from_file()

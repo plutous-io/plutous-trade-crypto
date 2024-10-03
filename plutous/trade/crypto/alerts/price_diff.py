@@ -1,13 +1,18 @@
 import asyncio
 
+from loguru import logger
+
 from plutous.trade.crypto import exchanges as ex
 
 from .base import BaseAlert, BaseAlertConfig
 
 
 class PriceDiffAlertConfig(BaseAlertConfig):
+    frequency: None = None
+    lookback: None = None
     min_threshold: float = 0.005
     max_threshold: float = 0.1
+    volume_threshold: float = 10_000
 
 
 class PriceDiffAlert(BaseAlert):
@@ -18,6 +23,7 @@ class PriceDiffAlert(BaseAlert):
         self.exchange: ex.Exchange = getattr(ex, config.exchange.value)()
 
     def run(self):
+        logger.info("Running PriceDiffAlert")
         asyncio.run(self._run())
 
     async def _run(self):
@@ -36,16 +42,18 @@ class PriceDiffAlert(BaseAlert):
             spot = spot_tickers[ticker]
             swap = swap_tickers[swap_ticker]
 
-            if spot["quoteVolume"] < 200_000:
+            if spot["quoteVolume"] < self.config.volume_threshold:
                 continue
 
             diff_percent = (swap["bid"] - spot["ask"]) / (swap["bid"] + spot["ask"])
             if self.config.min_threshold < diff_percent < self.config.max_threshold:
-                symbols.append((ticker, diff_percent))
+                symbols.append((ticker, diff_percent, spot["quoteVolume"]))
 
         if not symbols:
             await self.exchange.close()
             return
+
+        symbols.sort(key=lambda x: x[-1], reverse=True)
 
         if mention:
             msg += "{{ mentions }}\n"

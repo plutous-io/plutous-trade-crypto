@@ -8,29 +8,27 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from plutous import database as db
-from plutous.enums import Exchange
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import BidAskSum, Orderbook
 
-from .base import BaseCollector
+from .base import BaseCollector, BaseCollectorConfig
 
 TIMEOUT = timedelta(minutes=5)
+
+
+class OrderbookCollectorConfig(BaseCollectorConfig):
+    watch_orderbook_limit: int = 5000
 
 
 class OrderbookCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.ORDERBOOK
     TABLE: Type[Orderbook] = Orderbook
 
-    def __init__(
-        self,
-        exchange: Exchange,
-        symbols: list[str] | None = None,
-        rate_limit: bool = False,
-    ):
-        super().__init__(exchange, symbols, rate_limit)
-        self.exchange.options["watchOrderBookLimit"] = 5000  # type: ignore
+    def __init__(self, config: OrderbookCollectorConfig):
+        super().__init__(config)
+        self.exchange.options["watchOrderBookLimit"] = config.watch_orderbook_limit
 
-    async def collect(self):
+    async def _collect(self):
         active_symbols = await self.fetch_active_symbols()
         await self.exchange.watch_order_book_for_symbols(active_symbols)
         await asyncio.sleep(1)
@@ -63,6 +61,13 @@ class OrderbookCollector(BaseCollector):
 
             for symbol, orderbook in self.exchange.orderbooks.items():
                 logger.info(f"Processing orderbook for {symbol}")
+
+                if orderbook["timestamp"] < int(
+                    (datetime.now() - TIMEOUT).timestamp() * 1000
+                ):
+                    raise RuntimeError(
+                        f"Orderbook for {symbol} is stale, last updated at {orderbook['timestamp']}"
+                    )
 
                 while (lastest_bid := orderbook["bids"][0][0]) > (
                     lastest_ask := orderbook["asks"][0][0]

@@ -1,16 +1,11 @@
-import asyncio
 from datetime import datetime
-from typing import Optional, Type
+from typing import Type
 
 import pandas as pd
-from typer import Context, Option, Typer
-from typing_extensions import Annotated
+from typer import Context, Typer
 
 from plutous.cli.utils import parse_context_args
-from plutous.enums import Exchange
-from plutous.trade.crypto import alerts
-from plutous.trade.crypto.collectors import COLLECTORS
-from plutous.trade.crypto.enums import CollectorType
+from plutous.trade.crypto import alerts, collectors
 
 from . import database
 
@@ -21,36 +16,48 @@ for a in apps:
     app.add_typer(a)
 
 
+@app.command(
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    }
+)
 @app.command()
-def collect(
-    exchange: Exchange,
-    collector_type: CollectorType,
-    symbols: Annotated[list[str], Option()] = [],
-    rate_limit: Annotated[bool, Option()] = False,
-):
-    """Collect data from exchange."""
-    if not symbols:
-        symbols = None
-    collector = COLLECTORS[collector_type](exchange, symbols, rate_limit=rate_limit)
-    asyncio.run(collector.collect())
+def collect(collector_type: str, ctx: Context):
+    collector_cls: Type[collectors.BaseCollector] = getattr(
+        collectors, f"{collector_type}Collector"
+    )
+    collector_config_cls: Type[collectors.BaseCollectorConfig] = getattr(
+        collectors, f"{collector_type}CollectorConfig"
+    )
+    collector = collector_cls(collector_config_cls(**parse_context_args(ctx)))
+    collector.collect()
 
 
+@app.command(
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    }
+)
 @app.command()
-def backfill(
-    exchange: Exchange,
-    collector_type: CollectorType,
-    rate_limit: Annotated[bool, Option()] = False,
-    lookback: Annotated[str, Option()] = "1h",
-    duration: Annotated[Optional[str], Option()] = None,
-):
-    """Backfill last 1-hour data from exchange."""
-    collector = COLLECTORS[collector_type](exchange, rate_limit=rate_limit)
-
-    since = datetime.now() - pd.Timedelta(lookback).to_pytimedelta()
-    d = None
-    if duration:
-        d = pd.Timedelta(duration).to_pytimedelta()
-    asyncio.run(collector.backfill(since, d))
+def backfill(collector_type: str, ctx: Context):
+    collector_cls: Type[collectors.BaseCollector] = getattr(
+        collectors, f"{collector_type}Collector"
+    )
+    collector_config_cls: Type[collectors.BaseCollectorConfig] = getattr(
+        collectors, f"{collector_type}CollectorConfig"
+    )
+    context = parse_context_args(ctx)
+    assert "lookback" in context
+    collector = collector_cls(collector_config_cls(**context))
+    since = datetime.now() - pd.Timedelta(context["lookback"]).to_pytimedelta()
+    d = (
+        pd.Timedelta(context["duration"]).to_pytimedelta()
+        if context.get("duration")
+        else None
+    )
+    collector.backfill(since, d)
 
 
 @app.command(

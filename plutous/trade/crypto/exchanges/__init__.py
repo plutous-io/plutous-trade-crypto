@@ -3,6 +3,7 @@ from typing import Union
 from .binance import Binance, BinanceCoinm, BinanceUsdm
 from .bitget import Bitget
 from .bybit import Bybit
+from .coinbase import Coinbase
 from .coinex import CoinEx
 from .gateio import GateIO
 from .huobi import Huobi
@@ -19,6 +20,7 @@ Exchange = Union[
     BinanceUsdm,
     Bitget,
     Bybit,
+    Coinbase,
     CoinEx,
     GateIO,
     Huobi,

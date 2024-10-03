@@ -3,12 +3,17 @@ import asyncio
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import LongShortRatio
 
-from .base import BaseCollector
+from .base import BaseCollector, BaseCollectorConfig
+
+
+class LongShortRatioCollectorConfig(BaseCollectorConfig): ...
 
 
 class LongShortRatioCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.LONG_SHORT_RATIO
     TABLE = LongShortRatio
+
+    config: LongShortRatioCollectorConfig
 
     async def fetch_data(self):
         last_timestamp = self.round_milliseconds(

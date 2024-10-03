@@ -1,47 +1,81 @@
+import asyncio
+import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, Type
 
 import sentry_sdk
 from loguru import logger
+from pydantic import BaseModel, field_validator
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from plutous import database as db
 from plutous.enums import Exchange
 from plutous.trade.crypto import exchanges as ex
-from plutous.trade.crypto.config import config
+from plutous.trade.crypto.config import CONFIG
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import Base
+
+
+class BaseCollectorConfig(BaseModel):
+    exchange: Exchange
+    symbols: list[str] | None = None
+    rate_limit: bool = False
+    sentry_dsn: str | None = CONFIG.collector.sentry_dsn
+
+    @field_validator("symbols", mode="before")
+    def parse_json(cls, value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+        return value
 
 
 class BaseCollector(ABC):
     COLLECTOR_TYPE: CollectorType
     TABLE: Type[Base]
 
-    def __init__(
-        self,
-        exchange: Exchange,
-        symbols: list[str] | None = None,
-        rate_limit: bool = False,
-    ):
-        self._exchange = exchange
+    def __init__(self, config: BaseCollectorConfig):
+        self._exchange = config.exchange
         params = {}
-        if not rate_limit:
-            params["rateLimit"] = rate_limit
-        self.exchange: ex.Exchange = getattr(ex, exchange.value)(params)
-        self.symbols = symbols
+        if not config.rate_limit:
+            params["rateLimit"] = config.rate_limit
+        self.exchange: ex.Exchange = getattr(ex, config.exchange.value)(params)
+        self.symbols = config.symbols
 
-        sentry_sdk.init(config.sentry_dsn)
+        if config.sentry_dsn:
+            sentry_sdk.init(config.sentry_dsn)
 
-    async def collect(self):
+    def collect(self):
+        asyncio.run(self._collect())
+
+    def backfill(
+        self,
+        since: datetime,
+        duration: timedelta | None = None,
+        limit: int | None = None,
+        missing_only: bool = False,
+    ):
+        asyncio.run(
+            self._backfill(
+                since=since,
+                duration=duration,
+                limit=limit,
+                missing_only=missing_only,
+            )
+        )
+
+    async def _collect(self):
         data = await self.fetch_data()
         with db.Session() as session:
             self._insert(data, session)
             session.commit()
         await self.exchange.close()
 
-    async def backfill(
+    async def _backfill(
         self,
         since: datetime,
         duration: timedelta | None = None,

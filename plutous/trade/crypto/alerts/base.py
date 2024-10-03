@@ -6,12 +6,15 @@ from typing import Type
 
 import pandas as pd
 import requests
+import sentry_sdk
 import telegram
+from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from plutous import database as db
 from plutous.enums import Exchange
+from plutous.trade.crypto.config import CONFIG
 from plutous.trade.crypto.models import (
     OHLCV,
     Base,
@@ -33,6 +36,7 @@ class BaseAlertConfig(BaseModel):
     discord_mentions: dict[str, list[str]] = Field(default_factory=dict)
     telegram_config: dict[str, dict[str, str]] = Field(default_factory=dict)
     filters: list[str] = Field(default_factory=list)
+    sentry_dsn: str | None = CONFIG.alert.sentry_dsn
 
     @field_validator(
         "whitelist_symbols",
@@ -56,6 +60,7 @@ class BaseAlert(ABC):
     __tables__: list[Type[Base]] = [FundingRate, LongShortRatio, OpenInterest, OHLCV]
 
     def __init__(self, config: BaseAlertConfig):
+        logger.info(f"Initializing {self.__class__.__name__}")
         self.config = config
         mins = 60 if config.frequency == "1h" else int(config.frequency[:-1])
         multiplier = mins * 60 * 1000
@@ -63,6 +68,9 @@ class BaseAlert(ABC):
             (int(datetime.utcnow().timestamp() * 1000) // multiplier) - config.lookback
         ) * multiplier
         self.data: dict[str, pd.DataFrame] = {}
+
+        if config.sentry_dsn:
+            sentry_sdk.init(config.sentry_dsn)
 
         with db.engine.connect() as conn:
             kwargs = {
@@ -95,6 +103,7 @@ class BaseAlert(ABC):
 
     def send_discord_message(self, message: str):
         for tag, webhook in self.config.discord_webhooks.items():
+            logger.info(f"Sending Discord message to {tag}")
             mention_list = self.config.discord_mentions.get(tag, [])
             mentions = ""
             if mention_list:
@@ -104,6 +113,7 @@ class BaseAlert(ABC):
 
     def send_telegram_message(self, message: str):
         msg = message.replace("{{ mentions }}\n", "")
-        for telegram_config in self.config.telegram_config.values():
+        for tag, telegram_config in self.config.telegram_config.items():
+            logger.info(f"Sending Telegram message to {tag}")
             bot = telegram.Bot(token=telegram_config["token"])
             bot.sendMessage(chat_id=telegram_config["chat_id"], text=msg)

@@ -3,12 +3,17 @@ import asyncio
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import OHLCV
 
-from .base import BaseCollector
+from .base import BaseCollector, BaseCollectorConfig
+
+
+class OHLCVCollectorConfig(BaseCollectorConfig): ...
 
 
 class OHLCVCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.OHLCV
     TABLE = OHLCV
+
+    config: OHLCVCollectorConfig
 
     async def fetch_data(self):
         last_timestamp = self.round_milliseconds(

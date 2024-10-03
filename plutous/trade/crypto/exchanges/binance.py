@@ -619,7 +619,7 @@ class BinanceBase(binance):
             result.append(self.parse_long_short_ratio(interests[i]))
         return self.filter_by_symbol_since_limit(result, symbol, since, limit)
 
-    async def fetch_taker_buy_sell_volume(
+    async def fetch_taker_buy_sell(
         self,
         symbol: str,
         timeframe="1m",
@@ -652,11 +652,11 @@ class BinanceBase(binance):
         await self.load_markets()
         paginate = False
         paginate, params = self.handle_option_and_params(
-            params, "fetchTakerBuySellVolume", "paginate", False
+            params, "fetchTakerBuySell", "paginate", False
         )
         if paginate:
             return await self.fetch_paginated_call_deterministic(
-                "fetchTakerBuySellVolume",
+                "fetchTakerBuySell",
                 symbol,
                 since,
                 limit,
@@ -728,11 +728,11 @@ class BinanceBase(binance):
         #         }
         #     ]
         #
-        return self.parse_taker_buy_sell_volumes(
+        return self.parse_taker_buy_sells(
             response, symbol, market, timeframe, since, limit
         )
 
-    def parse_taker_buy_sell_volume(
+    def parse_taker_buy_sell(
         self, kline, symbol: str | None = None, market: Market = None
     ) -> dict:
         # when api method = publicGetKlines or fapiPublicGetKlines or dapiPublicGetKlines
@@ -787,7 +787,7 @@ class BinanceBase(binance):
             "info": kline,
         }
 
-    def parse_taker_buy_sell_volumes(
+    def parse_taker_buy_sells(
         self,
         klines: list[object],
         symbol: str | None = None,
@@ -799,9 +799,9 @@ class BinanceBase(binance):
     ):
         results = []
         for i in range(0, len(klines)):
-            results.append(self.parse_taker_buy_sell_volume(klines[i], symbol, market))
+            results.append(self.parse_taker_buy_sell(klines[i], symbol, market))
         sorted = self.sort_by(results, "timestamp")
-        return self.filter_by_since_limit(sorted, since, limit, 0, tail)
+        return self.filter_by_since_limit(sorted, since, limit)
 
 
 class Binance(BinanceBase):
@@ -815,6 +815,23 @@ class Binance(BinanceBase):
         params={},
     ):
         return await super().fetch_ohlcv(
+            symbol,
+            timeframe,
+            since,
+            limit,
+            params,
+        )
+
+    @paginate(max_limit=1000)
+    async def fetch_taker_buy_sell(
+        self,
+        symbol,
+        timeframe,
+        since=None,
+        limit=None,
+        params={},
+    ):
+        return await super().fetch_taker_buy_sell(
             symbol,
             timeframe,
             since,

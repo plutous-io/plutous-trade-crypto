@@ -5,26 +5,22 @@ from typing import Type
 from loguru import logger
 
 from plutous import database as db
-from plutous.enums import Exchange
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import TakerBuySell
 
-from .base import BaseCollector
+from .base import BaseCollector, BaseCollectorConfig
+
+
+class TakerBuySellCollectorConfig(BaseCollectorConfig): ...
 
 
 class TakerBuySellCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.TAKER_BUY_SELL
     TABLE: Type[TakerBuySell] = TakerBuySell
 
-    def __init__(
-        self,
-        exchange: Exchange,
-        symbols: list[str] | None = None,
-        rate_limit: bool = False,
-    ):
-        super().__init__(exchange, symbols, rate_limit)
+    config: TakerBuySellCollectorConfig
 
-    async def collect(self):
+    async def _collect(self):
         active_symbols = await self.fetch_active_symbols()
         await self.exchange.watch_trades_for_symbols(active_symbols)
         await asyncio.sleep(1)

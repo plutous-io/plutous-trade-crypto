@@ -6,14 +6,19 @@ from plutous import database as db
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import FundingRate, FundingSettlement
 
-from .base import BaseCollector
+from .base import BaseCollector, BaseCollectorConfig
+
+
+class FundingRateCollectorConfig(BaseCollectorConfig): ...
 
 
 class FundingRateCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.FUNDING_RATE
     TABLE = FundingRate
 
-    async def collect(self):
+    config: FundingRateCollectorConfig
+
+    async def _collect(self):
         fr, fs = await self.fetch_data()
         with db.Session() as session:
             self._insert(fr, session, FundingRate)

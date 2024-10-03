@@ -2,13 +2,13 @@ from typing import Type
 
 from plutous.trade.crypto.enums import CollectorType
 
-from .base import BaseCollector
-from .funding_rate import FundingRateCollector
-from .long_short_ratio import LongShortRatioCollector
-from .ohlcv import OHLCVCollector
-from .open_interest import OpenInterestCollector
-from .orderbook import OrderbookCollector
-from .taker_buy_sell import TakerBuySellCollector
+from .base import BaseCollector, BaseCollectorConfig
+from .funding_rate import FundingRateCollector, FundingRateCollectorConfig
+from .long_short_ratio import LongShortRatioCollector, LongShortRatioCollectorConfig
+from .ohlcv import OHLCVCollector, OHLCVCollectorConfig
+from .open_interest import OpenInterestCollector, OpenInterestCollectorConfig
+from .orderbook import OrderbookCollector, OrderbookCollectorConfig
+from .taker_buy_sell import TakerBuySellCollector, TakerBuySellCollectorConfig
 
 COLLECTORS: dict[CollectorType, Type[BaseCollector]] = {
     CollectorType.FUNDING_RATE: FundingRateCollector,

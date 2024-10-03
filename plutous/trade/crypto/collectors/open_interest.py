@@ -4,14 +4,19 @@ from datetime import datetime, timedelta
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import OpenInterest
 
-from .base import BaseCollector
+from .base import BaseCollector, BaseCollectorConfig
+
+
+class OpenInterestCollectorConfig(BaseCollectorConfig): ...
 
 
 class OpenInterestCollector(BaseCollector):
     COLLECTOR_TYPE = CollectorType.OPEN_INTEREST
     TABLE = OpenInterest
 
-    async def backfill(
+    config: OpenInterestCollectorConfig
+
+    async def _backfill(
         self,
         since: datetime,
         duration: timedelta | None = None,
