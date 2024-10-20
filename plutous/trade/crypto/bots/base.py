@@ -7,7 +7,6 @@ from typing import Any, Literal
 
 import requests
 import sentry_sdk
-from ccxt.base.errors import OrderNotFound
 from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy.orm import joinedload
@@ -15,6 +14,7 @@ from sqlalchemy.orm import joinedload
 from plutous import database as db
 from plutous.trade.crypto import exchanges as ex
 from plutous.trade.crypto.enums import OrderType
+from plutous.trade.crypto.exchanges.base.errors import OrderNotCancellable
 from plutous.trade.enums import Action, PositionSide, StrategyDirection
 from plutous.trade.models import Bot, Position, Trade
 
@@ -48,9 +48,12 @@ class BaseBot(ABC):
             .all()
         )
         self.positions = {(p.symbol, p.side): p for p in positions}
-        self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(
-            dict(apiKey=bot.api_key.key, secret=bot.api_key.secret)
-        )
+        kwargs = {"apiKey": bot.api_key.key, "secret": bot.api_key.secret}
+        if bot.api_key.passphrase:
+            kwargs["passphrase"] = bot.api_key.passphrase
+        if bot.api_key.user_token:
+            kwargs["userToken"] = bot.api_key.user_token
+        self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(kwargs)
 
         bot_config = bot.config or {}
         bot_config.update(
@@ -60,6 +63,7 @@ class BaseBot(ABC):
         self.config = config
 
     def run(self, **kwargs):
+        logger.info(f"Running {self.__class__.__name__}")
         asyncio.run(self._run(**kwargs))
         self.session.close()
 
@@ -77,7 +81,11 @@ class BaseBot(ABC):
         side: PositionSide,
         quantity: Decimal | None = None,
         order_type: OrderType = OrderType.MARKET,
+        params: dict[str, Any] | None = None,
     ):
+        if params is None:
+            params = {}
+
         if self.bot.max_position == len(self.positions):
             return
 
@@ -105,7 +113,7 @@ class BaseBot(ABC):
                 symbol=symbol,
                 side=action.value,
                 amount=float(quantity),
-                params={"positionSide": side.value},
+                params=params,
             )
         else:
             trades = [
@@ -177,7 +185,10 @@ class BaseBot(ABC):
         side: PositionSide,
         quantity: Decimal | None = None,
         order_type: OrderType = OrderType.MARKET,
+        params: dict[str, Any] | None = None,
     ):
+        if params is None:
+            params = {}
         position = self.positions.get((symbol, side))
         if position is None:
             return
@@ -190,7 +201,7 @@ class BaseBot(ABC):
                 symbol=symbol,
                 side=action.value,
                 amount=float(quantity),
-                params={"positionSide": position.side.value},
+                params=params,
             )
         else:
             ticker: dict[str, Any] = await self.exchange.fetch_ticker(symbol)  # type: ignore
@@ -269,10 +280,11 @@ class BaseBot(ABC):
         symbol: str,
         side: Literal["buy", "sell"],
         amount: float,
-        params: dict[str, Any] = {},
+        params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        if params is None:
+            params = {}
         await self.exchange.load_markets()
-        amount = float(self.exchange.amount_to_precision(symbol, amount))
         order = await self.exchange.create_order(
             symbol=symbol,
             type="market",
@@ -282,6 +294,16 @@ class BaseBot(ABC):
         )
         await asyncio.sleep(0.5)
         trades = await self.exchange.fetch_order_trades(order["id"], symbol=symbol)
+        traded_amount = sum([t["amount"] for t in trades])
+        price = sum([t["price"] * t["amount"] for t in trades]) / traded_amount
+        logger.info(
+            f"""
+            Market Order created sucessfully
+            Symbol: {symbol}
+            Traded amount: {traded_amount}
+            Traded price: {price}
+            """
+        )
         return trades
 
     async def create_limit_chasing_order(
@@ -289,16 +311,23 @@ class BaseBot(ABC):
         symbol: str,
         side: Literal["buy", "sell"],
         amount: float,
-        params: dict[str, Any] = {},
+        price_offset: int = 3,
+        order_lifetime: int = 2,
+        params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        if params is None:
+            params = {}
+        logger.info(f"Creating limit chasing order for {symbol}")
         await self.exchange.load_markets()
-        amount = float(self.exchange.amount_to_precision(symbol, amount))
+        market = self.exchange.market(symbol)
+        # amount = float(self.exchange.amount_to_precision(symbol, amount))
         filled_amount = 0
-        trades = []
+        filled_trades = []
         start = time.time()
-        while True:
+        while filled_amount < amount:
             if time.time() - start > self.config.order_timeout:
-                trades.extend(
+                logger.info("Order timed out, creating market order")
+                filled_trades.extend(
                     (
                         await self.create_market_order(
                             symbol,
@@ -310,27 +339,48 @@ class BaseBot(ABC):
                 )
                 break
 
-            orderbook = await self.exchange.watch_order_book(symbol)
+            ticker = await self.exchange.watch_ticker(symbol)
+            price_precision = market["precision"]["price"]
             price = (
-                orderbook["bids"][5][0] if side == "buy" else orderbook["asks"][5][0]
+                ticker["ask"] - (price_offset * price_precision)
+                if side == "buy"
+                else ticker["bid"] + (price_offset * price_precision)
+            )
+            amount_to_fill = amount - filled_amount
+            logger.info(
+                f"Creating limit chasing order at price: {price}, amount: {amount_to_fill}"
             )
             order = await self.exchange.create_order(
                 symbol=symbol,
                 type="limit",
                 side=side,
-                amount=amount - filled_amount,
+                amount=amount_to_fill,
                 price=price,
                 params=params,
             )
-            await asyncio.sleep(2)
+            await asyncio.sleep(order_lifetime)
             try:
                 await self.exchange.cancel_order(order["id"], symbol)
-            except OrderNotFound:
-                break
-            finally:
-                trades += await self.exchange.fetch_my_trades(
-                    symbol=symbol,
-                    params={"orderId": order["id"]},
+                logger.info(f"Limit Chasing Order cancelled: {order['id']}")
+            except OrderNotCancellable as e:
+                logger.info(f"Order not cancellable: {order['id']}: {e}")
+
+            trades = await self.exchange.fetch_my_trades(
+                symbol=symbol,
+                params={"orderId": order["id"]},
+            )
+            traded_amount = sum([t["amount"] for t in trades])
+            filled_trades.extend(trades)
+            filled_amount += traded_amount
+            if traded_amount:
+                logger.info(
+                    f"""
+                    Limit Chasing Order created sucessfully
+                    Symbol: {symbol}
+                    Traded amount: {traded_amount}
+                    Traded price: {price}
+                    Filled amount: {filled_amount}
+                    Filled percentage: {filled_amount / amount}
+                    """
                 )
-                filled_amount += sum([t["amount"] for t in trades])
-        return trades
+        return filled_trades

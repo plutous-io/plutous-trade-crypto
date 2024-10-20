@@ -12,7 +12,7 @@ class PriceDiffAlertConfig(BaseAlertConfig):
     lookback: None = None
     min_threshold: float = 0.005
     max_threshold: float = 0.1
-    volume_threshold: float = 10_000
+    volume_threshold: float = 1_000_000
 
 
 class PriceDiffAlert(BaseAlert):
@@ -31,6 +31,7 @@ class PriceDiffAlert(BaseAlert):
             self.exchange.fetch_tickers(params={"type": "spot"}),
             self.exchange.fetch_tickers(params={"type": "swap"}),
         )
+        logger.info("Fetched spot and swap tickers")
 
         msg = f"**Price Diff Alert ({self.config.exchange.value})**\n"
         symbols = []
@@ -45,9 +46,18 @@ class PriceDiffAlert(BaseAlert):
             if spot["quoteVolume"] < self.config.volume_threshold:
                 continue
 
-            diff_percent = (swap["bid"] - spot["ask"]) / (swap["bid"] + spot["ask"])
+            diff_percent = (swap["bid"] - spot["ask"]) / (
+                (swap["bid"] + spot["ask"]) / 2
+            )
             if self.config.min_threshold < diff_percent < self.config.max_threshold:
-                symbols.append((ticker, diff_percent, spot["quoteVolume"]))
+                symbols.append(
+                    (
+                        ticker,
+                        diff_percent,
+                        spot["quoteVolume"],
+                        swap["info"]["fundingRate"],
+                    )
+                )
 
         if not symbols:
             await self.exchange.close()
@@ -57,7 +67,14 @@ class PriceDiffAlert(BaseAlert):
 
         if mention:
             msg += "{{ mentions }}\n"
-        msg += "\n".join([f"{sbl}: {pct:.2%}" for sbl, pct in symbols])
+        msg += "\n".join(
+            [
+                f"{sbl}: {pct:.2%}, vol: {vol:.2f}, fr: {float(fr):.4%}"
+                for sbl, pct, vol, fr in symbols
+            ]
+        )
+
+        logger.info(msg)
 
         self.send_discord_message(msg)
         self.send_telegram_message(msg)
