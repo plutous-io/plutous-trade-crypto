@@ -95,9 +95,3 @@ class TakerBuySellCollector(BaseCollector):
                         taker_buy_sell[symbol].sell_vol += trade["amount"]
 
             await asyncio.sleep(0.5)
-
-    async def fetch_data(self):
-        pass
-
-    async def backfill_data(self, **kwargs):
-        pass

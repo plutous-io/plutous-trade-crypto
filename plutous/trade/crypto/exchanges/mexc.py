@@ -17,7 +17,7 @@ class Mexc(mexc):
     contract_private_post_order_cancel = contractPrivatePostOrderCancel = Entry(
         "order/cancel", ["futures", "private"], "POST", {"cost": 2}
     )
-    spot4_private_post_order_place = spot3PrivatePostOrderPlace = Entry(
+    spot4_private_post_order_place = spot4PrivatePostOrderPlace = Entry(
         "order/place", ["spot4", "private"], "POST", {"cost": 1}
     )
     # userToken used to bypass Mexc Futures Order Maintenance and uses private endpoints

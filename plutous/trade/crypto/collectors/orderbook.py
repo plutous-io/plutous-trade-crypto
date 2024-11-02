@@ -142,9 +142,3 @@ class OrderbookCollector(BaseCollector):
             )
             for snapshot in snapshots
         }
-
-    async def fetch_data(self):
-        pass
-
-    async def backfill_data(self, **kwargs):
-        pass

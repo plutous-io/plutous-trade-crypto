@@ -1,7 +1,6 @@
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
 from typing import Any, Type
 
 import sentry_sdk
@@ -52,73 +51,14 @@ class BaseCollector(ABC):
     def collect(self):
         asyncio.run(self._collect())
 
-    def backfill(
-        self,
-        since: datetime,
-        duration: timedelta | None = None,
-        limit: int | None = None,
-        missing_only: bool = False,
-    ):
-        asyncio.run(
-            self._backfill(
-                since=since,
-                duration=duration,
-                limit=limit,
-                missing_only=missing_only,
-            )
-        )
-
-    async def _collect(self):
-        data = await self.fetch_data()
-        with db.Session() as session:
-            self._insert(data, session)
-            session.commit()
-        await self.exchange.close()
-
-    async def _backfill(
-        self,
-        since: datetime,
-        duration: timedelta | None = None,
-        limit: int | None = None,
-        missing_only: bool = False,
-    ):
-        start_time = int(since.timestamp()) * 1000
-        end_time = None
-        if duration:
-            end_time = self.round_milliseconds(
-                start_time, offset=int(duration / timedelta(minutes=5))
-            )
-
-        data = await self.backfill_data(
-            start_time=start_time,
-            end_time=end_time,
-            limit=limit,
-            missing_only=missing_only,
-        )
-        with db.Session() as session:
-            self._insert(data, session)
-            session.commit()
-        await self.exchange.close()
+    @abstractmethod
+    async def _collect(self): ...
 
     async def fetch_active_symbols(self) -> list[str]:
         if self.symbols:
             return self.symbols
         markets: dict[str, dict[str, Any]] = await self.exchange.load_markets()
         return [symbol for symbol, market in markets.items() if market["active"]]
-
-    @abstractmethod
-    async def fetch_data(self) -> list[Base]:
-        pass
-
-    @abstractmethod
-    async def backfill_data(
-        self,
-        start_time: int,
-        end_time: int | None = None,
-        limit: int | None = None,
-        missing_only: bool = False,
-    ) -> list[Base]:
-        pass
 
     def _insert(
         self,
