@@ -48,9 +48,7 @@ class TakerBuySellCollector(BaseCollector):
                     with db.Session() as session:
                         self._insert(list(taker_buy_sell.values()), session)
                         session.commit()
-                ts = self.round_milliseconds(
-                    int(datetime.now().timestamp()) * 1000, 60000
-                )
+                ts = self.round_milliseconds(int(datetime.now().timestamp()) * 1000)
                 taker_buy_sell = {
                     symbol: TakerBuySell(
                         symbol=symbol,

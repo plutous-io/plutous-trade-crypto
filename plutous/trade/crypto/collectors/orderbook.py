@@ -86,7 +86,7 @@ class OrderbookCollector(BaseCollector):
                         orderbook["asks"].store(lastest_ask, 0)
 
                 bids, asks = np.array(orderbook["bids"]), np.array(orderbook["asks"])
-                timestamp = self.round_milliseconds(orderbook["timestamp"], 60 * 1000)
+                timestamp = self.round_milliseconds(orderbook["timestamp"])
                 bas = BidAskSum(
                     exchange=self._exchange,
                     symbol=symbol,

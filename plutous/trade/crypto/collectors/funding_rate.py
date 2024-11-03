@@ -1,7 +1,5 @@
 from typing import Any
 
-import pandas as pd
-
 from plutous import database as db
 from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import FundingRate, FundingSettlement
@@ -59,55 +57,3 @@ class FundingRateCollector(BaseCollector):
             )
         ]
         return fr, fs
-
-    async def backfill_data(
-        self,
-        start_time: int,
-        end_time: int | None = None,
-        limit: int | None = None,
-        missing_only: bool = False,
-    ):
-        """Actually uses forward fill"""
-        data: list[FundingRate] = []
-
-        with db.engine.connect() as conn:
-            kwargs = {
-                "exchange": self._exchange,
-                "symbols": await self.fetch_active_symbols(),
-                "since": self.round_milliseconds(start_time),
-                "frequency": "5m",
-                "limit": limit,
-                "conn": conn,
-            }
-            if end_time:
-                kwargs["until"] = end_time
-            fr_df = FundingRate.query(**kwargs).asfreq("5min")
-
-        if len(fr_df):
-            fr_df = fr_df.asfreq("5min")
-            is_na_fr_df = fr_df.isna()
-            fr_cols = (
-                fr_df.columns[is_na_fr_df.any()] if missing_only else fr_df.columns
-            )
-            fr_df.ffill(inplace=True)
-
-            for symbol in fr_cols.to_list():
-                fr = (
-                    fr_df[symbol][is_na_fr_df[symbol]]
-                    if missing_only
-                    else fr_df[symbol]
-                )
-                for ts, value in fr.items():
-                    time = int(ts.timestamp() * 1000)
-                    if pd.isnull(value):
-                        continue
-                    data.append(
-                        FundingRate(
-                            symbol=symbol,
-                            exchange=self._exchange,
-                            timestamp=time,
-                            funding_rate=value,
-                            datetime=self.exchange.iso8601(time),
-                        )
-                    )
-        return data

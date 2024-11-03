@@ -40,16 +40,16 @@ class OpenInterestCollector(BaseCollector):
                             symbol=open_interest["symbol"],
                             exchange=self._exchange,
                             timestamp=self.round_milliseconds(
-                                open_interest["timestamp"], offset=-1
+                                open_interest["timestamp"]
                             ),
                             open_interest=open_interest["openInterestAmount"],
                             datetime=self.exchange.iso8601(
-                                self.round_milliseconds(
-                                    open_interest["timestamp"], offset=-1
-                                )
+                                self.round_milliseconds(open_interest["timestamp"])
                             ),
                         )
                         for open_interest in open_interests
                     ],
                     session,
                 )
+                session.commit()
+            await asyncio.sleep(30)

@@ -9,7 +9,6 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from plutous import database as db
 from plutous.enums import Exchange
 from plutous.trade.crypto import exchanges as ex
 from plutous.trade.crypto.config import CONFIG
@@ -84,7 +83,7 @@ class BaseCollector(ABC):
     def round_milliseconds(
         self,
         timestamp: int,
-        multiplier: int = 300000,
+        multiplier: int = 60 * 1000,
         offset: int = 0,
     ) -> int:
         return ((timestamp // multiplier) + offset) * multiplier
