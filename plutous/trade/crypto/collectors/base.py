@@ -19,6 +19,7 @@ from plutous.trade.crypto.models import Base
 class BaseCollectorConfig(BaseModel):
     exchange: Exchange
     symbols: list[str] | None = None
+    symbol_type: str = "spot"
     rate_limit: bool = False
     sentry_dsn: str | None = CONFIG.collector.sentry_dsn
 
@@ -43,6 +44,7 @@ class BaseCollector(ABC):
             params["rateLimit"] = config.rate_limit
         self.exchange: ex.Exchange = getattr(ex, config.exchange.value)(params)
         self.symbols = config.symbols
+        self.config = config
 
         if config.sentry_dsn:
             sentry_sdk.init(config.sentry_dsn)
@@ -57,7 +59,11 @@ class BaseCollector(ABC):
         if self.symbols:
             return self.symbols
         markets: dict[str, dict[str, Any]] = await self.exchange.load_markets()
-        return [symbol for symbol, market in markets.items() if market["active"]]
+        return [
+            symbol
+            for symbol, market in markets.items()
+            if market["active"] and (market["type"] == self.config.symbol_type)
+        ]
 
     def _insert(
         self,

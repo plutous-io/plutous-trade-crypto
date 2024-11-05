@@ -10,7 +10,8 @@ from .base import BaseCollector, BaseCollectorConfig
 TIMEOUT = timedelta(minutes=2)
 
 
-class OpenInterestCollectorConfig(BaseCollectorConfig): ...
+class OpenInterestCollectorConfig(BaseCollectorConfig):
+    symbol_type: str = "swap"
 
 
 class OpenInterestCollector(BaseCollector):

@@ -10,6 +10,7 @@ from plutous.trade.crypto.exchanges import (
     Huobi,
     Kucoin,
     KucoinFutures,
+    LBank,
     Mexc,
     Okx,
     Phemex,
@@ -31,3 +32,4 @@ class Exchange(Enum):
     PHEMEX = Phemex
     WOO = Woo
     MEXC = Mexc
+    LBANK = LBank

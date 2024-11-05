@@ -6,7 +6,8 @@ from plutous.trade.crypto.models import LongShortRatio
 from .base import BaseCollector, BaseCollectorConfig
 
 
-class LongShortRatioCollectorConfig(BaseCollectorConfig): ...
+class LongShortRatioCollectorConfig(BaseCollectorConfig):
+    symbol_type: str = "swap"
 
 
 class LongShortRatioCollector(BaseCollector):

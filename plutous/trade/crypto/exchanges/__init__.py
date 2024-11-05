@@ -8,6 +8,7 @@ from .coinex import CoinEx
 from .gateio import GateIO
 from .huobi import Huobi
 from .kucoin import Kucoin, KucoinFutures
+from .lbank import LBank
 from .mexc import Mexc
 from .okx import Okx
 from .phemex import Phemex
@@ -26,6 +27,7 @@ Exchange = Union[
     Huobi,
     Kucoin,
     KucoinFutures,
+    LBank,
     Mexc,
     Okx,
     Phemex,
