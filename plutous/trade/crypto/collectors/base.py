@@ -20,7 +20,7 @@ class BaseCollectorConfig(BaseModel):
     exchange: Exchange
     symbols: list[str] | None = None
     symbol_type: str = "spot"
-    rate_limit: bool = False
+    rate_limit: int | None = None
     sentry_dsn: str | None = CONFIG.collector.sentry_dsn
 
     @field_validator("symbols", mode="before")
@@ -40,7 +40,7 @@ class BaseCollector(ABC):
     def __init__(self, config: BaseCollectorConfig):
         self._exchange = config.exchange
         params = {}
-        if not config.rate_limit:
+        if config.rate_limit:
             params["rateLimit"] = config.rate_limit
         self.exchange: ex.Exchange = getattr(ex, config.exchange.value)(params)
         self.symbols = config.symbols

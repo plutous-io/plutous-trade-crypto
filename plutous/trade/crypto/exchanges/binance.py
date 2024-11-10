@@ -1,8 +1,9 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ccxt.base.errors import ArgumentsRequired, BadRequest, BadSymbol, NotSupported
-from ccxt.base.types import Market
+from ccxt.base.types import FundingRates, Market, Strings
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
 from plutous.trade.crypto.utils.paginate import paginate
@@ -38,6 +39,20 @@ class BinanceBase(binance):
                 ],
             },
         )
+
+    async def fetch_funding_rates(
+        self, symbols: Strings = None, params={}
+    ) -> FundingRates:
+        fr, fi = await asyncio.gather(
+            super().fetch_funding_rates(symbols, params),
+            self.fetch_funding_intervals(params=params),
+        )
+        for f in fr.values():
+            if f["symbol"] not in fi:
+                f["interval"] = "8h"
+            else:
+                f["interval"] = fi[f["symbol"]]["interval"]
+        return fr
 
     def parse_c2c_trade(self, trade):
         # {'orderNumber': '20300690644555571200',

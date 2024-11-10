@@ -1,10 +1,11 @@
+import asyncio
 import hashlib
 import json
 import time
 
 from ccxt.base.decimal_to_precision import TRUNCATE
 from ccxt.base.errors import BadRequest, InvalidOrder
-from ccxt.base.types import Entry, Str
+from ccxt.base.types import Entry, FundingRates, Str, Strings
 from ccxt.pro import mexc
 
 from plutous.trade.crypto.exchanges.base.errors import OrderFilled, OrderNotCancellable
@@ -216,6 +217,17 @@ class Mexc(mexc):
                     raise OrderNotCancellable(e.args[0])
                 raise OrderNotCancellable(e.args[0])
             raise e
+
+    async def fetch_funding_rates(
+        self, symbols: Strings = None, params={}
+    ) -> FundingRates:
+        markets = await self.load_markets()
+        if symbols is None:
+            symbols = [symbol for symbol, market in markets.items() if market["swap"]]
+        funding_rates = await asyncio.gather(
+            *[self.fetch_funding_rate(symbol, params) for symbol in symbols]
+        )
+        return {rate["symbol"]: rate for rate in funding_rates}
 
 
 # funding_rates = None

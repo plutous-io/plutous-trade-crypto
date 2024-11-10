@@ -12,6 +12,7 @@ TIMEOUT = timedelta(minutes=2)
 
 class FundingRateCollectorConfig(BaseCollectorConfig):
     symbol_type: str = "swap"
+    sleep_time: int = 30
 
 
 class FundingRateCollector(BaseCollector):
@@ -23,6 +24,7 @@ class FundingRateCollector(BaseCollector):
     async def _collect(self):
         active_symbols = await self.fetch_active_symbols()
         while True:
+            await self.exchange.load_markets(reload=True)
             if hasattr(self.exchange, "fetch_funding_rates"):
                 funding_rates = list(
                     (await self.exchange.fetch_funding_rates(active_symbols)).values()
@@ -53,6 +55,11 @@ class FundingRateCollector(BaseCollector):
                     ),
                     settlement_timestamp=funding_rate["fundingTimestamp"],
                     settlement_datetime=funding_rate["fundingDatetime"],
+                    funding_interval=(
+                        funding_rate["interval"][:-1]
+                        if funding_rate["interval"]
+                        else None
+                    ),
                 )
                 for funding_rate in funding_rates
                 if funding_rate["fundingRate"] is not None
@@ -77,4 +84,4 @@ class FundingRateCollector(BaseCollector):
                 self._insert(fr, session, FundingRate)
                 self._insert(fs, session, FundingSettlement)
                 session.commit()
-            await asyncio.sleep(30)
+            await asyncio.sleep(self.config.sleep_time)
