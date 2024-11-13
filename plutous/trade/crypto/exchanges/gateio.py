@@ -1,3 +1,4 @@
+from ccxt.base.types import FundingRate, Market
 from ccxt.pro import gateio
 
 
@@ -9,6 +10,12 @@ class GateIO(gateio):
             super(GateIO, self).describe(),
             {"plutous_funcs": []},
         )
+
+    def parse_funding_rate(self, contract, market: Market = None) -> FundingRate:
+        fr = super().parse_funding_rate(contract, market)
+        fr["timestamp"] = self.milliseconds()
+        fr["datetime"] = self.iso8601(fr["timestamp"])
+        return fr
 
     async def watch_funding_rate(self, symbol, params={}):
         message = await self.watch_ticker(symbol, params)

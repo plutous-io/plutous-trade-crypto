@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import datetime, timedelta
 from typing import Type
 
@@ -9,10 +10,11 @@ from sqlalchemy.orm import Session
 
 from plutous import database as db
 from plutous.trade.crypto.enums import CollectorType
-from plutous.trade.crypto.models import BidAskSum, Orderbook
+from plutous.trade.crypto.models import BidAskSum, Orderbook, orderbook
 
 from .base import BaseCollector, BaseCollectorConfig
 
+INIT_TIMEOUT = 20
 TIMEOUT = timedelta(minutes=5)
 
 
@@ -35,6 +37,19 @@ class OrderbookCollector(BaseCollector):
 
         if self.exchange.orderbooks is None:
             raise RuntimeError("No orderbooks found")
+
+        start_time = time.time()
+        while True:
+            if time.time() - start_time > INIT_TIMEOUT:
+                raise RuntimeError("Orderbook not populated")
+            if all(
+                [
+                    self.exchange.orderbooks[symbol]["timestamp"] is not None
+                    for symbol in active_symbols
+                ]
+            ):
+                break
+            await asyncio.sleep(1)
 
         # Fetch the last snapshot of the orderbook and update miss prices
         with db.Session() as session:

@@ -8,6 +8,7 @@ from plutous.trade.crypto.exchanges import (
     Bybit,
     GateIO,
     Huobi,
+    Hyperliquid,
     Kucoin,
     KucoinFutures,
     LBank,
@@ -26,6 +27,7 @@ class Exchange(Enum):
     BYBIT = Bybit
     GATEIO = GateIO
     HUOBI = Huobi
+    HYPERLIQUID = Hyperliquid
     KUCOIN = Kucoin
     KUCOIN_FUTURES = KucoinFutures
     OKX = Okx

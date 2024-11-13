@@ -7,6 +7,7 @@ from .coinbase import Coinbase
 from .coinex import CoinEx
 from .gateio import GateIO
 from .huobi import Huobi
+from .hyperliquid import Hyperliquid
 from .kucoin import Kucoin, KucoinFutures
 from .lbank import LBank
 from .mexc import Mexc
@@ -25,6 +26,7 @@ Exchange = Union[
     CoinEx,
     GateIO,
     Huobi,
+    Hyperliquid,
     Kucoin,
     KucoinFutures,
     LBank,

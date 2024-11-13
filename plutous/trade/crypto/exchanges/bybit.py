@@ -1,4 +1,3 @@
-from ccxt.base.types import FundingRate, Market
 from ccxt.pro import bybit
 
 
@@ -15,17 +14,6 @@ class Bybit(bybit):
                 "plutous_funcs": [],
             },
         )
-
-    def parse_funding_rate(self, ticker, market: Market = None) -> FundingRate:
-        info = self.safe_dict(self.market(ticker["symbol"]), "info", {})
-        funding_interval = self.safe_integer(info, "fundingInterval")
-        interval_string = None
-        if funding_interval is not None:
-            funding_interval = self.parse_to_int(funding_interval / 60)
-            interval_string = str(funding_interval) + "h"
-        funding_rate = super().parse_funding_rate(ticker, market)
-        funding_rate["interval"] = interval_string
-        return funding_rate
 
     async def watch_funding_rate(self, symbol, params={}):
         message = await self.watch_ticker(symbol, params)
