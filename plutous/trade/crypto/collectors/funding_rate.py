@@ -13,6 +13,7 @@ TIMEOUT = timedelta(minutes=2)
 class FundingRateCollectorConfig(BaseCollectorConfig):
     symbol_type: str = "swap"
     sleep_time: int = 30
+    settlement_countdown: int = 5 * 60 * 1000
 
 
 class FundingRateCollector(BaseCollector):
@@ -22,9 +23,8 @@ class FundingRateCollector(BaseCollector):
     config: FundingRateCollectorConfig
 
     async def _collect(self):
-        active_symbols = await self.fetch_active_symbols()
         while True:
-            await self.exchange.load_markets(reload=True)
+            active_symbols = await self.fetch_active_symbols()
             if hasattr(self.exchange, "fetch_funding_rates"):
                 funding_rates = list(
                     (await self.exchange.fetch_funding_rates(active_symbols)).values()
@@ -65,21 +65,20 @@ class FundingRateCollector(BaseCollector):
 
             fs = [
                 FundingSettlement(
-                    symbol=funding_rate["symbol"],
+                    symbol=funding_rate.symbol,
                     exchange=self._exchange,
-                    funding_rate=funding_rate["fundingRate"] * 100,
-                    timestamp=funding_rate["fundingTimestamp"],
-                    datetime=funding_rate["fundingDatetime"],
+                    funding_rate=funding_rate.funding_rate * 100,
+                    timestamp=funding_rate.settlement_timestamp,
+                    datetime=funding_rate.settlement_datetime,
                 )
-                for funding_rate in funding_rates
-                if (funding_rate["fundingRate"] is not None)
-                & (
-                    funding_rate["fundingTimestamp"] - funding_rate["timestamp"]
-                    < 60 * 1000
+                for funding_rate in fr
+                if (
+                    (funding_rate.settlement_timestamp - funding_rate.timestamp)
+                    <= self.config.settlement_countdown
                 )
             ]
             with db.Session() as session:
                 self._insert(fr, session, FundingRate)
-                self._insert(fs, session, FundingSettlement)
+                self._upsert(fs, session, FundingSettlement, ["funding_rate"])
                 session.commit()
             await asyncio.sleep(self.config.sleep_time)

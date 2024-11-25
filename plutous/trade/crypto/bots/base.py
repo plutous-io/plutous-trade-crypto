@@ -48,12 +48,6 @@ class BaseBot(ABC):
             .all()
         )
         self.positions = {(p.symbol, p.side): p for p in positions}
-        kwargs = {"apiKey": bot.api_key.key, "secret": bot.api_key.secret}
-        if bot.api_key.passphrase:
-            kwargs["passphrase"] = bot.api_key.passphrase
-        if bot.api_key.user_token:
-            kwargs["userToken"] = bot.api_key.user_token
-        self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(kwargs)
 
         bot_config = bot.config or {}
         bot_config.update(
@@ -61,6 +55,15 @@ class BaseBot(ABC):
         )
         config.__dict__.update(bot_config)
         self.config = config
+
+        kwargs = {}
+        if not self.config.dry_run:
+            kwargs.update({"apiKey": bot.api_key.key, "secret": bot.api_key.secret})
+            if bot.api_key.passphrase:
+                kwargs["passphrase"] = bot.api_key.passphrase
+            if bot.api_key.user_token:
+                kwargs["userToken"] = bot.api_key.user_token
+        self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(kwargs)
 
     def run(self, **kwargs):
         logger.info(f"Running {self.__class__.__name__}")
@@ -262,6 +265,10 @@ class BaseBot(ABC):
         p = sum([t["amount"] * t["price"] for t in trades]) / q
         icon = ":white_check_mark:" if total_realized_pnl > 0 else ":x:"
 
+        accumulated_realized_pnl = sum(
+            [b.realized_pnl for b in self.bot.positions if b.realized_pnl is not None]
+        )
+
         msg = [
             self.bot.name,
             f"{icon} Closed {side.value} on **{symbol}**",
@@ -269,6 +276,8 @@ class BaseBot(ABC):
             f"`quantity: {q}`",
             f"`realized_pnl: {total_realized_pnl}`",
             f"`realized_pnl(%): {total_realized_pnl / pre_allocated_capital * 100}`",
+            f"`accumulated_realized_pnl: {accumulated_realized_pnl}`",
+            f"`accumulated_realized_pnl(%): {accumulated_realized_pnl / self.bot.initial_capital * 100}`",
         ]
         if self.config.close_position_msg:
             msg.append(self.config.close_position_msg)

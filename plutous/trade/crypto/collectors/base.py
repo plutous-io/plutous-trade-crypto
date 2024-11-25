@@ -58,7 +58,9 @@ class BaseCollector(ABC):
     async def fetch_active_symbols(self) -> list[str]:
         if self.symbols:
             return self.symbols
-        markets: dict[str, dict[str, Any]] = await self.exchange.load_markets()
+        markets: dict[str, dict[str, Any]] = await self.exchange.load_markets(
+            reload=True
+        )
         return [
             symbol
             for symbol, market in markets.items()
@@ -83,6 +85,29 @@ class BaseCollector(ABC):
                 "symbol",
                 "timestamp",
             ],
+        )
+        session.execute(stmt)
+
+    def _upsert(
+        self,
+        data: list[Base],
+        session: Session,
+        table: Type[Base] | None = None,
+        update_fields: list[str] | None = None,
+    ):
+        if not data:
+            return
+        if table is None:
+            table = self.TABLE
+        logger.info(f"Upserting {len(data)} records into {table.__name__}")
+        stmt = insert(table).values([d.dict() for d in data])
+        index_elements = ["exchange", "symbol", "timestamp"]
+        to_update = set(update_fields or list(data[0].dict().keys())) - set(
+            index_elements
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=index_elements,
+            set_={k: getattr(stmt.excluded, k) for k in to_update},
         )
         session.execute(stmt)
 

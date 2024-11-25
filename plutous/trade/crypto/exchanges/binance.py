@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ccxt.base.errors import ArgumentsRequired, BadRequest, BadSymbol, NotSupported
-from ccxt.base.types import FundingRates, Market, Strings
+from ccxt.base.types import FundingRates, Market, Strings, Tickers
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
 from plutous.trade.crypto.utils.paginate import paginate
@@ -53,6 +53,19 @@ class BinanceBase(binance):
             else:
                 f["interval"] = fi[f["symbol"]]["interval"]
         return fr
+
+    async def fetch_tickers(self, symbols: Strings = None, params={}) -> Tickers:
+        tickers, bids_asks = await asyncio.gather(
+            super().fetch_tickers(symbols, params),
+            self.fetch_bids_asks(symbols, params),
+        )
+        for tk in tickers.values():
+            if tk["symbol"] in bids_asks:
+                tk["bid"] = bids_asks[tk["symbol"]]["bid"]
+                tk["bidVolume"] = bids_asks[tk["symbol"]]["bidVolume"]
+                tk["ask"] = bids_asks[tk["symbol"]]["ask"]
+                tk["askVolume"] = bids_asks[tk["symbol"]]["askVolume"]
+        return tickers
 
     def parse_c2c_trade(self, trade):
         # {'orderNumber': '20300690644555571200',
