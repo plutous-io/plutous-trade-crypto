@@ -6,6 +6,7 @@ from plutous.trade.crypto.exchanges import (
     BinanceUsdm,
     Bitget,
     Bybit,
+    Coinbase,
     GateIO,
     Huobi,
     Hyperliquid,
@@ -25,6 +26,7 @@ class Exchange(Enum):
     BINANCE_USDM = BinanceUsdm
     BITGET = Bitget
     BYBIT = Bybit
+    COINBASE = Coinbase
     GATEIO = GateIO
     HUOBI = Huobi
     HYPERLIQUID = Hyperliquid

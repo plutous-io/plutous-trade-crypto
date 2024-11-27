@@ -29,6 +29,7 @@ class BaseBotConfig(BaseModel):
 
 class BaseBot(ABC):
     def __init__(self, config: BaseBotConfig):
+        logger.info(f"Initializing {self.__class__.__name__}")
         self.session = session = db.Session()
         self.bot = bot = (
             session.query(Bot)
@@ -55,6 +56,7 @@ class BaseBot(ABC):
         )
         config.__dict__.update(bot_config)
         self.config = config
+        logger.info(f"Bot config: {config}")
 
         kwargs = {}
         if not self.config.dry_run:
