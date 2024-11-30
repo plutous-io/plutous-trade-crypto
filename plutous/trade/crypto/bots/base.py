@@ -3,7 +3,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any, Literal, Type
 
 import requests
 import sentry_sdk
@@ -28,6 +28,8 @@ class BaseBotConfig(BaseModel):
 
 
 class BaseBot(ABC):
+    __config_cls__: Type[BaseBotConfig] = BaseBotConfig
+
     def __init__(self, config: BaseBotConfig):
         logger.info(f"Initializing {self.__class__.__name__}")
         self.session = session = db.Session()
@@ -54,9 +56,8 @@ class BaseBot(ABC):
         bot_config.update(
             {key: val for key, val in config.__dict__.items() if key not in bot_config}
         )
-        config.__dict__.update(bot_config)
-        self.config = config
-        logger.info(f"Bot config: {config}")
+        self.config = self.__config_cls__(**bot_config)
+        logger.info(f"Bot config: {self.config}")
 
         kwargs = {}
         if not self.config.dry_run:

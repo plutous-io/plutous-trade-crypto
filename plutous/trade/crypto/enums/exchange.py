@@ -5,11 +5,15 @@ from plutous.trade.crypto.exchanges import (
     BinanceCoinm,
     BinanceUsdm,
     Bitget,
+    Bitmex,
     Bybit,
     Coinbase,
+    Deribit,
     GateIO,
+    Gemini,
     Huobi,
     Hyperliquid,
+    Kraken,
     Kucoin,
     KucoinFutures,
     LBank,
@@ -26,10 +30,14 @@ class Exchange(Enum):
     BINANCE_USDM = BinanceUsdm
     BITGET = Bitget
     BYBIT = Bybit
+    BITMEX = Bitmex
     COINBASE = Coinbase
+    DERIBIT = Deribit
     GATEIO = GateIO
+    GEMINI = Gemini
     HUOBI = Huobi
     HYPERLIQUID = Hyperliquid
+    KRAKEN = Kraken
     KUCOIN = Kucoin
     KUCOIN_FUTURES = KucoinFutures
     OKX = Okx
