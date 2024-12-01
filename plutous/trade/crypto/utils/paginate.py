@@ -13,8 +13,6 @@ Coroutine = Callable[..., Awaitable[list[dict[str, Any]]]]
 
 def paginate(
     id_arg: str = "fromId",
-    start_time_arg: str = "startTime",
-    end_time_arg: str = "endTime",
     max_limit: int | float = float("inf"),
     max_interval: Optional[timedelta] = None,
 ) -> Callable:
@@ -26,10 +24,6 @@ def paginate(
     ----------
     id_arg : str, optional
         Parameter name to filter ``id`` of the request. Default to ``fromId``.
-    start_time_arg : str, optional
-        Parameter name for start_time filter of the request. Default to ``startTime``.
-    end_time_arg : str, optional
-        Parameter name for end_time filter of the request. Default to ``endTime``.
     max_limit: int, optional
         Max limit of the given endpoint. Default to ``float('inf')``.
     max_interval: datetime.timedelta, optional
@@ -56,7 +50,7 @@ def paginate(
             while (len(records) == max_limit) & (limit > 0):
                 if id_arg in kwargs:
                     params[id_arg] = int(records[-1]["id"]) + 1
-                elif ("since" in kwargs) or (start_time_arg in params):
+                elif "since" in kwargs:
                     kwargs["since"] = int(records[-1]["timestamp"]) + 1
                 else:
                     break
@@ -68,9 +62,9 @@ def paginate(
 
         async def paginate_over_interval(**kwargs) -> list[dict[str, Any]]:
             params: dict = kwargs["params"]
-            since: int = kwargs.get("since") or params.get(start_time_arg)
+            since: int = kwargs.get("since")
             now = int(datetime.now(timezone.utc).timestamp() * 1000)
-            end = params.get(end_time_arg, now)
+            end = params.get("until", now)
             if "timeframe" in kwargs:
                 diff = (
                     ccxt.Exchange.parse_timeframe(kwargs["timeframe"])
@@ -90,7 +84,7 @@ def paginate(
                 ckwargs = kwargs.copy()
                 params = params.copy()
                 ckwargs["since"] = since
-                params[end_time_arg] = min(since + diff - 1, end)
+                params["until"] = min(since + diff - 1, end)
                 ckwargs["params"] = params
                 coroutines.append(paginate_over_limit(**ckwargs))
 
@@ -113,7 +107,7 @@ def paginate(
 
             if id_arg in kwargs:
                 return await paginate_over_limit(**kwargs)
-            if (kwargs.get("since") is not None) or (start_time_arg in kwargs.get("params", {})):
+            if kwargs.get("since") is not None:
                 return await paginate_over_interval(**kwargs)
             return await func(**kwargs)
 

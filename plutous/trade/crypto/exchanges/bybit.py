@@ -1,5 +1,7 @@
 from ccxt.pro import bybit
 
+from plutous.trade.crypto.utils.paginate import paginate
+
 
 class Bybit(bybit):
     funding_rates = None
@@ -14,6 +16,12 @@ class Bybit(bybit):
                 "plutous_funcs": [],
             },
         )
+
+    @paginate(max_limit=1000)
+    async def fetch_ohlcv(
+        self, symbol, timeframe="1m", since=None, limit=None, params={}
+    ):
+        return await super().fetch_ohlcv(symbol, timeframe, since, limit, params)
 
     async def watch_funding_rate(self, symbol, params={}):
         message = await self.watch_ticker(symbol, params)

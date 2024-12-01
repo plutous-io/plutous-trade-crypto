@@ -330,8 +330,6 @@ class BinanceBase(binance):
     @paginate(
         max_limit=100,
         max_interval=timedelta(days=30),
-        start_time_arg="startTimestamp",
-        end_time_arg="endTimestamp",
     )
     async def fetch_c2c_trades(self, since=None, limit=None, params={}):
         query = params.copy()

@@ -4,7 +4,7 @@ from plutous.trade.crypto.utils.paginate import paginate
 
 
 class Bitmex(bitmex):
-    @paginate(max_limit=1000, end_time_arg="until")
+    @paginate(max_limit=1000)
     async def fetch_ohlcv(
         self,
         symbol,
