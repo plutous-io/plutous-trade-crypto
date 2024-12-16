@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from plutous import database as db
 from plutous.trade.crypto.enums import CollectorType
-from plutous.trade.crypto.models import FundingRate, FundingSettlement
+from plutous.trade.crypto.models import FundingRate
 
 from .base import BaseCollector, BaseCollectorConfig
 
@@ -63,22 +63,7 @@ class FundingRateCollector(BaseCollector):
                 if funding_rate["fundingRate"] is not None
             ]
 
-            fs = [
-                FundingSettlement(
-                    symbol=funding_rate.symbol,
-                    exchange=self._exchange,
-                    funding_rate=funding_rate.funding_rate * 100,
-                    timestamp=funding_rate.settlement_timestamp,
-                    datetime=funding_rate.settlement_datetime,
-                )
-                for funding_rate in fr
-                if (
-                    (funding_rate.settlement_timestamp - funding_rate.timestamp)
-                    <= self.config.settlement_countdown
-                )
-            ]
             with db.Session() as session:
                 self._insert(fr, session, FundingRate)
-                self._upsert(fs, session, FundingSettlement, ["funding_rate"])
                 session.commit()
             await asyncio.sleep(self.config.sleep_time)

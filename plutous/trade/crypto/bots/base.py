@@ -23,6 +23,7 @@ class BaseBotConfig(BaseModel):
     bot_id: int
     dry_run: bool = False
     order_timeout: int = 60
+    http_proxy: str | None = None
     open_position_msg: str | None = None
     close_position_msg: str | None = None
 
@@ -66,6 +67,8 @@ class BaseBot(ABC):
                 kwargs["passphrase"] = bot.api_key.passphrase
             if bot.api_key.user_token:
                 kwargs["userToken"] = bot.api_key.user_token
+        if self.config.http_proxy:
+            kwargs["http_proxy"] = self.config.http_proxy
         self.exchange: ex.Exchange = getattr(ex, bot.exchange.value)(kwargs)
 
     def run(self, **kwargs):

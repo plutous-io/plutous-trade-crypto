@@ -4,7 +4,7 @@ from plutous.trade.crypto.utils.paginate import paginate
 
 
 class Coinbase(coinbase):
-    @paginate(max_limit=350)
+    @paginate(max_limit=300)
     async def fetch_ohlcv(
         self,
         symbol,

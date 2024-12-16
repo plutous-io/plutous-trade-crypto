@@ -8,13 +8,15 @@ from plutous.enums import Exchange
 from .base import Base, SupportedFreq
 
 
-class OHLCV(Base):
+class OHLCVMixin:
     open: Mapped[float]
     high: Mapped[float]
     low: Mapped[float]
     close: Mapped[float]
     volume: Mapped[float]
 
+
+class OHLCV(Base, OHLCVMixin):
     @declared_attr.directive
     def __tablename__(cls) -> str:
         return "ohlcv"
@@ -86,3 +88,9 @@ class OHLCV(Base):
         df.columns = df.columns.swaplevel(0, 1)
 
         return df
+
+
+class OHLCV1h(Base, OHLCVMixin):
+    @declared_attr.directive
+    def __tablename__(cls) -> str:
+        return "ohlcv_1h"
