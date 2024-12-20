@@ -48,6 +48,7 @@ class BaseCollector(ABC):
             sentry_sdk.init(config.sentry_dsn)
 
     def collect(self):
+        logger.info(f"Starting {self.__class__.__name__}")
         asyncio.run(self._collect())
 
     @abstractmethod

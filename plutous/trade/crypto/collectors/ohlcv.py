@@ -35,7 +35,6 @@ class OHLCVCollector(BaseCollector):
                 symbol,
                 timeframe=self.config.frequency,
                 since=last_timestamp,
-                limit=1,
                 params={},
             )
             for symbol in active_symbols
