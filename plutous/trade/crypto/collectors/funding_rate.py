@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime, timedelta
 
 from plutous import database as db
-from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import FundingRate
 
 from .base import BaseCollector, BaseCollectorConfig
@@ -17,7 +16,6 @@ class FundingRateCollectorConfig(BaseCollectorConfig):
 
 
 class FundingRateCollector(BaseCollector):
-    COLLECTOR_TYPE = CollectorType.FUNDING_RATE
     TABLE = FundingRate
 
     config: FundingRateCollectorConfig

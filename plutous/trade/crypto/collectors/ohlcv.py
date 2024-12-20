@@ -1,38 +1,49 @@
 import asyncio
+from typing import Type
 
-from plutous.trade.crypto.enums import CollectorType
-from plutous.trade.crypto.models import OHLCV
+from plutous import database as db
+from plutous.trade.crypto.models import ohlcv as m
 
 from .base import BaseCollector, BaseCollectorConfig
 
 
-class OHLCVCollectorConfig(BaseCollectorConfig): ...
+class OHLCVCollectorConfig(BaseCollectorConfig):
+    symbols: list[str] = [
+        "ETH/USDT:USDT",
+        "BTC/USDT:USDT",
+    ]
+    symbol_type: str = "swap"
+    frequency: str = "1h"
 
 
 class OHLCVCollector(BaseCollector):
-    COLLECTOR_TYPE = CollectorType.OHLCV
-    TABLE = OHLCV
+    TABLE = m.OHLCV
 
     config: OHLCVCollectorConfig
 
-    async def fetch_data(self):
+    async def _collect(self):
+        Table: Type[m.Base] = getattr(m, f"OHLCV{self.config.frequency}")
+        round_milliseconds = self.exchange.parse_timeframe(self.config.frequency) * 1000
         last_timestamp = self.round_milliseconds(
-            self.exchange.milliseconds(), offset=-1
+            self.exchange.milliseconds(),
+            round_milliseconds,
+            offset=-1,
         )
         active_symbols = await self.fetch_active_symbols()
         coroutines = [
             self.exchange.fetch_ohlcv(
                 symbol,
-                timeframe="5m",
+                timeframe=self.config.frequency,
+                since=last_timestamp,
                 limit=1,
-                params={"endTime": last_timestamp},
+                params={},
             )
             for symbol in active_symbols
         ]
         ohlcvs = await asyncio.gather(*coroutines)
         ohlcvs = [ohlcvs[0] for ohlcvs in ohlcvs]
-        return [
-            OHLCV(
+        ohlcv = [
+            Table(
                 symbol=symbol,
                 exchange=self._exchange,
                 timestamp=ohlcv[0],
@@ -45,50 +56,11 @@ class OHLCVCollector(BaseCollector):
             )
             for symbol, ohlcv in list(zip(active_symbols, ohlcvs))
         ]
+        if ohlcv[0].timestamp != last_timestamp:
+            raise RuntimeError(f"Data is stale, last updated at {ohlcv[0].timestamp}")
 
-    async def backfill_data(
-        self,
-        start_time: int,
-        end_time: int | None = None,
-        limit: int | None = None,
-        missing_only: bool = False,
-    ):
-        params = {
-            "endTime": self.round_milliseconds(
-                self.exchange.milliseconds(),
-                offset=-1,
-            )
-        }
-        if end_time:
-            params["endTime"] = min(params["endTime"], end_time)
+        with db.Session() as session:
+            self._insert(ohlcv, session, Table)
+            session.commit()
 
-        active_symbols = await self.fetch_active_symbols()
-        coroutines = [
-            self.exchange.fetch_ohlcv(
-                symbol,
-                timeframe="5m",
-                since=self.round_milliseconds(start_time),
-                limit=limit,
-                params=params,
-            )
-            for symbol in active_symbols
-        ]
-        ohlcvs = await asyncio.gather(*coroutines)
-
-        data: list[OHLCV] = []
-        for symbol, ohlcvs in list(zip(active_symbols, ohlcvs)):
-            for ohlcv in ohlcvs:
-                data.append(
-                    OHLCV(
-                        symbol=symbol,
-                        exchange=self._exchange,
-                        timestamp=ohlcv[0],
-                        open=ohlcv[1],
-                        high=ohlcv[2],
-                        low=ohlcv[3],
-                        close=ohlcv[4],
-                        volume=ohlcv[5],
-                        datetime=self.exchange.iso8601(ohlcv[0]),
-                    )
-                )
-        return data
+        await self.exchange.close()

@@ -9,7 +9,6 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from plutous import database as db
-from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import BidAskSum, Orderbook, orderbook
 
 from .base import BaseCollector, BaseCollectorConfig
@@ -23,7 +22,6 @@ class OrderbookCollectorConfig(BaseCollectorConfig):
 
 
 class OrderbookCollector(BaseCollector):
-    COLLECTOR_TYPE = CollectorType.ORDERBOOK
     TABLE: Type[Orderbook] = Orderbook
 
     def __init__(self, config: OrderbookCollectorConfig):

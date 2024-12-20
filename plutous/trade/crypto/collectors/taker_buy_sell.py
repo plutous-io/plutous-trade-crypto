@@ -5,7 +5,6 @@ from typing import Type
 from loguru import logger
 
 from plutous import database as db
-from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import TakerBuySell
 
 from .base import BaseCollector, BaseCollectorConfig
@@ -15,7 +14,6 @@ class TakerBuySellCollectorConfig(BaseCollectorConfig): ...
 
 
 class TakerBuySellCollector(BaseCollector):
-    COLLECTOR_TYPE = CollectorType.TAKER_BUY_SELL
     TABLE: Type[TakerBuySell] = TakerBuySell
 
     config: TakerBuySellCollectorConfig

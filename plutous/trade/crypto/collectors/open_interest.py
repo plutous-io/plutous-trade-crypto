@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime, timedelta
 
 from plutous import database as db
-from plutous.trade.crypto.enums import CollectorType
 from plutous.trade.crypto.models import OpenInterest
 
 from .base import BaseCollector, BaseCollectorConfig
@@ -15,7 +14,6 @@ class OpenInterestCollectorConfig(BaseCollectorConfig):
 
 
 class OpenInterestCollector(BaseCollector):
-    COLLECTOR_TYPE = CollectorType.OPEN_INTEREST
     TABLE = OpenInterest
 
     config: OpenInterestCollectorConfig

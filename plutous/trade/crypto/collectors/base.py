@@ -12,8 +12,7 @@ from sqlalchemy.orm import Session
 from plutous.enums import Exchange
 from plutous.trade.crypto import exchanges as ex
 from plutous.trade.crypto.config import CONFIG
-from plutous.trade.crypto.enums import CollectorType
-from plutous.trade.crypto.models import Base
+from plutous.trade.crypto.models import Base, Table
 
 
 class BaseCollectorConfig(BaseModel):
@@ -34,7 +33,6 @@ class BaseCollectorConfig(BaseModel):
 
 
 class BaseCollector(ABC):
-    COLLECTOR_TYPE: CollectorType
     TABLE: Type[Base]
 
     def __init__(self, config: BaseCollectorConfig):
@@ -69,9 +67,9 @@ class BaseCollector(ABC):
 
     def _insert(
         self,
-        data: list[Base],
+        data: list[Table],
         session: Session,
-        table: Type[Base] | None = None,
+        table: Type[Table] | None = None,
     ):
         if not data:
             return
@@ -90,9 +88,9 @@ class BaseCollector(ABC):
 
     def _upsert(
         self,
-        data: list[Base],
+        data: list[Table],
         session: Session,
-        table: Type[Base] | None = None,
+        table: Type[Table] | None = None,
         update_fields: list[str] | None = None,
     ):
         if not data:
