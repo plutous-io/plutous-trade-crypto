@@ -7,6 +7,7 @@ from typing import Any, Literal, Type
 
 import requests
 import sentry_sdk
+from ccxt.base.errors import InvalidOrder
 from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy.orm import joinedload
@@ -26,6 +27,7 @@ class BaseBotConfig(BaseModel):
     http_proxy: str | None = None
     open_position_msg: str | None = None
     close_position_msg: str | None = None
+    order_type: OrderType = OrderType.MARKET
 
 
 class BaseBot(ABC):
@@ -43,6 +45,7 @@ class BaseBot(ABC):
         )
         if bot.sentry_dsn:
             sentry_sdk.init(bot.sentry_dsn)
+
         positions = (
             session.query(Position)
             .filter(
@@ -89,12 +92,13 @@ class BaseBot(ABC):
         symbol: str,
         side: PositionSide,
         quantity: Decimal | None = None,
-        order_type: OrderType = OrderType.MARKET,
+        order_type: OrderType | None = None,
         params: dict[str, Any] | None = None,
     ):
+        if order_type is None:
+            order_type = self.config.order_type
         if params is None:
             params = {}
-
         if self.bot.max_position == len(self.positions):
             return
 
@@ -133,6 +137,10 @@ class BaseBot(ABC):
                     "id": "dry_run",
                 }
             ]
+
+        if not trades:
+            logger.info("No trades executed, position not opened")
+            return
 
         side = PositionSide.LONG if action == Action.BUY else PositionSide.SHORT
         position = self.positions.get((symbol, side))
@@ -179,8 +187,8 @@ class BaseBot(ABC):
         msg = [
             self.bot.name,
             f"{circle} Opened {side.value} on **{symbol}**",
-            f"`price: {price}`",
-            f"`quantity: {quantity}`",
+            f"`price: {position.price}`",
+            f"`quantity: {position.quantity}`",
         ]
         if self.config.open_position_msg:
             msg.append(self.config.open_position_msg)
@@ -193,14 +201,17 @@ class BaseBot(ABC):
         symbol: str,
         side: PositionSide,
         quantity: Decimal | None = None,
-        order_type: OrderType = OrderType.MARKET,
+        order_type: OrderType | None = None,
         params: dict[str, Any] | None = None,
     ):
+        if order_type is None:
+            order_type = self.config.order_type
         if params is None:
             params = {}
         position = self.positions.get((symbol, side))
         if position is None:
             return
+
         action = Action.SELL if position.side == PositionSide.LONG else Action.BUY
         quantity = min(quantity or position.quantity, position.quantity)
 
@@ -308,7 +319,9 @@ class BaseBot(ABC):
             params=params,
         )
         await asyncio.sleep(0.5)
-        trades = await self.exchange.fetch_order_trades(order["id"], symbol=symbol)
+        trades: list[dict[str, Any]] = await self.exchange.fetch_order_trades(
+            order["id"], symbol=symbol
+        )
         traded_amount = sum([t["amount"] for t in trades])
         price = sum([t["price"] * t["amount"] for t in trades]) / traded_amount
         logger.info(
@@ -326,16 +339,17 @@ class BaseBot(ABC):
         symbol: str,
         side: Literal["buy", "sell"],
         amount: float,
-        price_offset: int = 3,
-        order_lifetime: int = 2,
         params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         if params is None:
             params = {}
+        price_offset: int = params.pop("price_offset", 3)
+        order_lifetime: int = params.pop("order_lifetime", 2)
+
         logger.info(f"Creating limit chasing order for {symbol}")
         await self.exchange.load_markets()
         market = self.exchange.market(symbol)
-        # amount = float(self.exchange.amount_to_precision(symbol, amount))
+        amount = float(self.exchange.amount_to_precision(symbol, amount))
         filled_amount = 0
         filled_trades = []
         start = time.time()
@@ -354,25 +368,34 @@ class BaseBot(ABC):
                 )
                 break
 
-            ticker = await self.exchange.watch_ticker(symbol)
+            ob = await self.exchange.watch_order_book(symbol)
             price_precision = market["precision"]["price"]
             price = (
-                ticker["ask"] - (price_offset * price_precision)
+                ob["asks"][0][0] - (price_offset * price_precision)
                 if side == "buy"
-                else ticker["bid"] + (price_offset * price_precision)
+                else ob["bids"][0][0] + (price_offset * price_precision)
             )
             amount_to_fill = amount - filled_amount
+            try:
+                self.exchange.amount_to_precision(symbol, amount_to_fill)
+            except InvalidOrder:
+                logger.info("Amount to precision failed, stopping limit chasing")
+                break
             logger.info(
                 f"Creating limit chasing order at price: {price}, amount: {amount_to_fill}"
             )
-            order = await self.exchange.create_order(
-                symbol=symbol,
-                type="limit",
-                side=side,
-                amount=amount_to_fill,
-                price=price,
-                params=params,
-            )
+            try:
+                order: dict[str, Any] = await self.exchange.create_order(
+                    symbol=symbol,
+                    type="limit",
+                    side=side,
+                    amount=amount_to_fill,
+                    price=price,
+                    params=params,
+                )
+            except InvalidOrder as e:
+                logger.info(f"Invalid order: {e}")
+                break
             await asyncio.sleep(order_lifetime)
             try:
                 await self.exchange.cancel_order(order["id"], symbol)
@@ -380,9 +403,8 @@ class BaseBot(ABC):
             except OrderNotCancellable as e:
                 logger.info(f"Order not cancellable: {order['id']}: {e}")
 
-            trades = await self.exchange.fetch_my_trades(
-                symbol=symbol,
-                params={"orderId": order["id"]},
+            trades: list[dict[str, Any]] = await self.exchange.fetch_order_trades(
+                order["id"], symbol=symbol
             )
             traded_amount = sum([t["amount"] for t in trades])
             filled_trades.extend(trades)

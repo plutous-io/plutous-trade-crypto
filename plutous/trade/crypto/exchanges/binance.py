@@ -2,10 +2,17 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ccxt.base.errors import ArgumentsRequired, BadRequest, BadSymbol, NotSupported
-from ccxt.base.types import FundingRates, Market, Strings, Tickers
+from ccxt.base.errors import (
+    ArgumentsRequired,
+    BadRequest,
+    BadSymbol,
+    NotSupported,
+    OrderNotFound,
+)
+from ccxt.base.types import FundingRates, Market, Str, Strings, Tickers
 from ccxt.pro import binance, binancecoinm, binanceusdm
 
+from plutous.trade.crypto.exchanges.base.errors import OrderNotCancellable
 from plutous.trade.crypto.utils.paginate import paginate
 
 
@@ -53,6 +60,18 @@ class BinanceBase(binance):
             else:
                 f["interval"] = fi[f["symbol"]]["interval"]
         return fr
+
+    async def cancel_order(self, id: str, symbol: Str = None, params={}):
+        try:
+            return await super().cancel_order(id, symbol, params)
+        except OrderNotFound as e:
+            raise OrderNotCancellable(
+                self.id
+                + " cancelOrder() could not cancel order with id "
+                + id
+                + " "
+                + str(e)
+            )
 
     async def fetch_tickers(self, symbols: Strings = None, params={}) -> Tickers:
         tickers, bids_asks = await asyncio.gather(
