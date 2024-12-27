@@ -238,6 +238,10 @@ class BaseBot(ABC):
                 }
             ]
 
+        if not trades:
+            logger.info("No trades executed, position not closed")
+            return
+
         total_realized_pnl = 0
         pre_allocated_capital = self.bot.allocated_capital
         for t in trades:
@@ -394,7 +398,7 @@ class BaseBot(ABC):
                     params=params,
                 )
             except InvalidOrder as e:
-                logger.info(f"Invalid order: {e}")
+                logger.error(f"Invalid order: {e}")
                 break
             await asyncio.sleep(order_lifetime)
             try:
