@@ -19,6 +19,7 @@ class BaseCollectorConfig(BaseModel):
     exchange: Exchange
     symbols: list[str] | None = None
     symbol_type: str = "spot"
+    symbol_subtype: str | None = None
     rate_limit: int | None = None
     sentry_dsn: str | None = CONFIG.collector.sentry_dsn
 
@@ -60,11 +61,17 @@ class BaseCollector(ABC):
         markets: dict[str, dict[str, Any]] = await self.exchange.load_markets(
             reload=True
         )
-        return [
-            symbol
-            for symbol, market in markets.items()
-            if market["active"] and (market["type"] == self.config.symbol_type)
-        ]
+        symbols = []
+        for symbol, market in markets.items():
+            if not market["active"]:
+                continue
+            if market["type"] != self.config.symbol_type:
+                continue
+            if self.config.symbol_subtype:
+                if market["subType"] != self.config.symbol_subtype:
+                    continue
+            symbols.append(symbol)
+        return symbols
 
     def _insert(
         self,

@@ -1,5 +1,9 @@
 import asyncio
+import time
+from datetime import datetime
 from typing import Type
+
+from loguru import logger
 
 from plutous import database as db
 from plutous.trade.crypto.models import ohlcv as m
@@ -14,6 +18,7 @@ class OHLCVCollectorConfig(BaseCollectorConfig):
     ]
     symbol_type: str = "swap"
     frequency: str = "1h"
+    cold_start_duration: int = 5  # minutes
 
 
 class OHLCVCollector(BaseCollector):
@@ -22,6 +27,14 @@ class OHLCVCollector(BaseCollector):
     config: OHLCVCollectorConfig
 
     async def _collect(self):
+        while minute_countdown := (60 - datetime.now().minute) < (
+            self.config.cold_start_duration
+        ):
+            logger.info("Cold starting, waiting for the next hour")
+            if minute_countdown > 1:
+                time.sleep(30)
+            time.sleep(1)
+
         Table: Type[m.Base] = getattr(m, f"OHLCV{self.config.frequency}")
         round_milliseconds = self.exchange.parse_timeframe(self.config.frequency) * 1000
         last_timestamp = self.round_milliseconds(

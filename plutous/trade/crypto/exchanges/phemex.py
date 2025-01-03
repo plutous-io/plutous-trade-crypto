@@ -1,68 +1,57 @@
-from ccxt.base.errors import BadSymbol
+from ccxt.base.errors import BadRequest, BadSymbol
+from ccxt.base.types import FundingRate, FundingRates, Market, Strings
 from ccxt.pro import phemex
 
 
 class Phemex(phemex):
-    def describe(self):
-        return self.deep_extend(
-            super().describe(),
-            {
-                "urls": {"api": {"v2": "https://{hostname}"}},
-                "api": {
-                    "v2": {
-                        "get": [
-                            "md/v2/ticker/24hr",  # ?symbol=<symbol>&id=<id>
-                            "md/v2/ticker/24hr/all",  # ?id=<id>
-                        ]
-                    }
-                },
-            },
-        )
+    def parse_funding_rate(self, contract, market: Market = None) -> FundingRate:
+        fr = super().parse_funding_rate(contract, market)
+        try:
+            market = self.market(self.safe_string(fr, "symbol"))
+            info = self.safe_dict(market, "info", {})
+            intervalSecond = self.safe_integer(info, "fundingInterval")
+            if intervalSecond is not None:
+                fr["interval"] = str(int(intervalSecond / 60 / 60)) + "h"
+                multiplier = intervalSecond * 1000
+                settlementTimestamp = (
+                    (self.milliseconds() // multiplier) + 1
+                ) * multiplier
+                fr["fundingTimestamp"] = settlementTimestamp
+                fr["fundingDatetime"] = self.iso8601(settlementTimestamp)
+        except BadSymbol:
+            pass
+        return fr
 
-    async def fetch_funding_rate(self, symbol, params={}):
-        """
-        fetch the current funding rate
-        :param str symbol: unified market symbol
-        :param dict params: extra parameters specific to the phemex api endpoint
-        :returns dict: a `funding rate structure <https://docs.ccxt.com/en/latest/manual.html#funding-rate-structure>`
-        """
+    async def fetch_funding_rates(
+        self, symbols: Strings = None, params={}
+    ) -> FundingRates:
         await self.load_markets()
-        market = self.market(symbol)
-        if not market["swap"]:
-            raise BadSymbol(
-                self.id + " fetchFundingRate() supports swap contracts only"
+        market: Market = None
+        if symbols is not None:
+            first = self.safe_value(symbols, 0)
+            market: Market = self.market(first)
+            if not market["swap"]:
+                raise BadSymbol(
+                    self.id + " fetchFundingRates() supports swap contracts only"
+                )
+        type = None
+        type, params = self.handle_market_type_and_params(
+            "fetchFundingRates", market, params, "swap"
+        )
+        subType = None
+        subType, params = self.handle_sub_type_and_params(
+            "fetchFundingRates", market, params, "linear"
+        )
+        query = self.omit(params, "type")
+        if type != "swap":
+            raise BadRequest(
+                self.id + " does not support " + type + " markets, only swap"
             )
-        request = {
-            "symbol": market["id"],
-        }
-        info = self.safe_value(market, "info", {})
-        type = self.safe_string_lower(info, "type")
-        if type == "perpetual":
-            response = await self.v1GetMdTicker24hr(self.extend(request, params))
+        response = None
+        if subType == "inverse" or self.safe_string(market, "settle") == "USD":
+            response = await self.v1GetMdTicker24hrAll(query)
         else:
-            response = await self.v2GetMdV2Ticker24hr(self.extend(request, params))
-        #
-        #     {
-        #         "error": null,
-        #         "id": 0,
-        #         "result": {
-        #             "askEp": 2332500,
-        #             "bidEp": 2331000,
-        #             "fundingRateEr": 10000,
-        #             "highEp": 2380000,
-        #             "indexEp": 2329057,
-        #             "lastEp": 2331500,
-        #             "lowEp": 2274000,
-        #             "markEp": 2329232,
-        #             "openEp": 2337500,
-        #             "openInterest": 1298050,
-        #             "predFundingRateEr": 19921,
-        #             "symbol": "ETHUSD",
-        #             "timestamp": 1592474241582701416,
-        #             "turnoverEv": 47228362330,
-        #             "volume": 4053863
-        #         }
-        #     }
-        #
-        result = self.safe_value(response, "result", {})
-        return self.parse_funding_rate(result, market)
+            response = await self.v2GetMdV2Ticker24hrAll(query)
+        result = self.safe_list(response, "result", [])
+        funding_rates = self.parse_funding_rates(result)
+        return self.filter_by_array(funding_rates, "symbol", symbols)
