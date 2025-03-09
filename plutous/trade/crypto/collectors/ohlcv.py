@@ -12,7 +12,7 @@ from .base import BaseCollector, BaseCollectorConfig
 
 
 class OHLCVCollectorConfig(BaseCollectorConfig):
-    symbols: list[str] = [
+    symbols: list[str] | None = [
         "ETH/USDT:USDT",
         "BTC/USDT:USDT",
     ]

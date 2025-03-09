@@ -6,6 +6,7 @@ from plutous.trade.crypto.exchanges import (
     BinanceUsdm,
     Bitget,
     Bitmex,
+    Bitunix,
     Bybit,
     Coinbase,
     Deribit,
@@ -31,6 +32,7 @@ class Exchange(Enum):
     BITGET = Bitget
     BYBIT = Bybit
     BITMEX = Bitmex
+    BITUNIX = Bitunix
     COINBASE = Coinbase
     DERIBIT = Deribit
     GATEIO = GateIO

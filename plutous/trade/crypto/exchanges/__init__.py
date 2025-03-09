@@ -3,6 +3,7 @@ from typing import Union
 from .binance import Binance, BinanceCoinm, BinanceUsdm
 from .bitget import Bitget
 from .bitmex import Bitmex
+from .bitunix import Bitunix
 from .bybit import Bybit
 from .coinbase import Coinbase
 from .coinex import CoinEx
@@ -26,6 +27,7 @@ Exchange = Union[
     BinanceUsdm,
     Bitget,
     Bitmex,
+    Bitunix,
     Bybit,
     Coinbase,
     CoinEx,
