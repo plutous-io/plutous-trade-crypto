@@ -7,6 +7,7 @@ from .bitunix import Bitunix
 from .bybit import Bybit
 from .coinbase import Coinbase
 from .coinex import CoinEx
+from .coinw import CoinW
 from .deribit import Deribit
 from .gateio import GateIO
 from .gemini import Gemini
@@ -31,6 +32,7 @@ Exchange = Union[
     Bybit,
     Coinbase,
     CoinEx,
+    CoinW,
     Deribit,
     GateIO,
     Gemini,

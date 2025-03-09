@@ -511,9 +511,9 @@ class Bitunix(Exchange, ImplicitAPI):
                             "min": None,
                             "max": None,
                         },
-                        "created": None,
-                        "info": market,
                     },
+                    "created": None,
+                    "info": market,
                 }
             )
         return result
