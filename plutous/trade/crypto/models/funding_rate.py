@@ -8,7 +8,7 @@ from .base import Base
 
 
 class FundingRate(Base):
-    __main_columns__ = ["funding_rate"]
+    __main_columns__ = ["funding_rate", "funding_interval"]
 
     funding_rate: Mapped[float] = mapped_column(DECIMAL(7, 6))
     funding_interval: Mapped[Optional[int]] = mapped_column(INT)

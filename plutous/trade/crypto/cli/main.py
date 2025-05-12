@@ -5,7 +5,7 @@ import pandas as pd
 from typer import Context, Typer
 
 from plutous.cli.utils import parse_context_args
-from plutous.trade.crypto import alerts, collectors
+from plutous.trade.crypto import alerts, bots, collectors
 
 from . import database
 
@@ -76,3 +76,18 @@ def alert(alert_type: str, ctx: Context):
     config = alert_config_cls(**parse_context_args(ctx))
     alert = alert_cls(config)
     alert.run()
+
+
+@app.command(
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    }
+)
+def start(name: str, ctx: Context):
+    bot_cls: Type[bots.BaseBot] = getattr(bots, f"{name}Bot")
+    bot_config_cls: Type[bots.BaseBotConfig] = getattr(bots, f"{name}BotConfig")
+
+    config = bot_config_cls(**parse_context_args(ctx))
+    bot = bot_cls(config)
+    bot.run()

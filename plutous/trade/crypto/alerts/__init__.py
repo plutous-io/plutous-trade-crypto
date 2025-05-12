@@ -1,4 +1,5 @@
 from .base import BaseAlert, BaseAlertConfig
+from .fr_variation import FRVariationAlert, FRVariationAlertConfig
 from .oi_variation import OIVariationAlert, OIVariationAlertConfig
 from .price_diff import PriceDiffAlert, PriceDiffAlertConfig
 from .price_variation import PriceVariationAlert, PriceVariationAlertConfig

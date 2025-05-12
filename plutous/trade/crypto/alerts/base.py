@@ -1,7 +1,7 @@
 import json
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Type
 
 import pandas as pd
@@ -65,7 +65,8 @@ class BaseAlert(ABC):
         mins = 60 if config.frequency == "1h" else int(config.frequency[:-1])
         multiplier = mins * 60 * 1000
         since = (
-            (int(datetime.utcnow().timestamp() * 1000) // multiplier) - config.lookback
+            (int(datetime.now(timezone.utc).timestamp() * 1000) // multiplier)
+            - config.lookback
         ) * multiplier
         self.data: dict[str, pd.DataFrame] = {}
 

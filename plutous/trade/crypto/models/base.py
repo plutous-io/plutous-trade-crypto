@@ -75,6 +75,8 @@ class Base(DeclarativeBase, BaseMixin):
                 )
             case "5m":
                 pass
+            case "1m":
+                pass
             case _:
                 raise ValueError(f"Unsupported frequency: {freq}")
         return sql
